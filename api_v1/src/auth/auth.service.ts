@@ -1,0 +1,67 @@
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as argon2 from 'argon2';
+import postgres from 'postgres';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @Inject('AUTH_DB') private sql: postgres.Sql<{}>,
+    private jwtService: JwtService, // ← inject JwtService to sign tokens
+  ) {}
+
+  // ─── REGISTER ────────────────────────────────────────────
+  async register(username: string, email: string, password: string) {
+    // 1. Check if email already exists
+    const [existing] = await this
+      .sql`SELECT id FROM users WHERE email = ${email}`;
+    if (existing) throw new ConflictException('Email already in use');
+
+    // 2. Hash the password with Argon2
+    const hash = await argon2.hash(password);
+
+    // 3. Insert into users (auth_role has SELECT on users, but not INSERT!)
+    //    ⚠️  See note below about this
+    const [user] = await this.sql`
+      INSERT INTO users (username, email)
+      VALUES (${username}, ${email})
+      RETURNING id, username, email
+    `;
+
+    // 4. Insert the hash into user_secret
+    await this.sql`
+      INSERT INTO user_secret (id, password_hash)
+      VALUES (${user.id}, ${hash})
+    `;
+
+    return { message: 'User registered successfully', userId: user.id };
+  }
+
+  // ─── LOGIN ───────────────────────────────────────────────
+  async login(email: string, password: string) {
+    // 1. Find user (auth_role has SELECT on users)
+    const [user] = await this
+      .sql`SELECT id, username FROM users WHERE email = ${email}`;
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    // 2. Get password hash (auth_role has SELECT on user_secret)
+    const [secret] = await this.sql`
+      SELECT password_hash FROM user_secret WHERE id = ${user.id}
+    `;
+
+    // 3. Verify with Argon2
+    const isValid = await argon2.verify(secret.password_hash, password);
+    if (!isValid) throw new UnauthorizedException('Invalid credentials');
+
+    // 4. Sign and return the JWT
+    const payload = { sub: user.id, username: user.username };
+    return {
+      access_token: this.jwtService.sign(payload),
+    };
+  }
+}
