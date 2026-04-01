@@ -35,6 +35,8 @@ services:
       - "127.0.0.1:3000:3000"
     depends_on:
       - postgres
+    volumes:
+      - uploads_data:/app/uploads
 
 networks:
   epfl_private_network:
@@ -42,3 +44,4 @@ networks:
 
 volumes:
   pgdata:
+  uploads_data:
