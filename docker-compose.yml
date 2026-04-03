@@ -28,6 +28,7 @@ services:
       # Two separate role connections (matches your database.module.ts)
       API_DB_URL: postgres://api_role:secure_api_password@postgres:5432/campus_motion
       AUTH_DB_URL: postgres://auth_role:secure_auth_password@postgres:5432/campus_motion
+      ADMIN_DB_URL: postgres://admin_role:secure_admin_password@postgres:5432/campus_motion
       JWT_SECRET: change_this_to_a_long_random_secret
     networks:
       - epfl_private_network

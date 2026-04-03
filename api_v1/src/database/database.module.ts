@@ -17,7 +17,13 @@ import { ConfigService } from '@nestjs/config';
         postgres(config.getOrThrow<string>('AUTH_DB_URL')),
       inject: [ConfigService],
     },
+    {
+      provide: 'ADMIN_DB',
+      useFactory: (config: ConfigService) =>
+        postgres(config.getOrThrow<string>('ADMIN_DB_URL')),
+      inject: [ConfigService],
+    },
   ],
-  exports: ['API_DB', 'AUTH_DB'],
+  exports: ['API_DB', 'AUTH_DB', 'ADMIN_DB'],
 })
 export class DatabaseModule {}

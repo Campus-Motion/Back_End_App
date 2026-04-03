@@ -22,6 +22,7 @@ CREATE TYPE notification_type AS ENUM ('like', 'comment', 'follow', 'event_join'
 -- Note: Add WITH LOGIN PASSWORD '...' in production
 CREATE ROLE api_role WITH LOGIN PASSWORD 'secure_api_password';
 CREATE ROLE auth_role WITH LOGIN PASSWORD 'secure_auth_password';
+CREATE ROLE admin_role WITH LOGIN PASSWORD 'secure_admin_password' BYPASSRLS;
 
 -- ─────────────────────────────────────────
 -- Tables
@@ -304,6 +305,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
 TO api_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO api_role;
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    locations, users, events, event_participants,
+    activities, activity_waypoints, news, comments, likes,
+    user_follows, notifications, audit_log
+TO admin_role;
 
 -- auth_role: ONLY for login / password management
 GRANT SELECT, INSERT, UPDATE, DELETE ON user_secret TO auth_role;

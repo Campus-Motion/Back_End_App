@@ -12,7 +12,7 @@ import postgres from 'postgres';
 export class AuthService {
   constructor(
     @Inject('AUTH_DB') private sql: postgres.Sql<{}>,
-    private jwtService: JwtService, // ← inject JwtService to sign tokens
+    private jwtService: JwtService, // inject JwtService to sign tokens
   ) {}
 
   // ─── REGISTER ────────────────────────────────────────────
@@ -26,7 +26,6 @@ export class AuthService {
     const hash = await argon2.hash(password);
 
     // 3. Insert into users (auth_role has SELECT on users, but not INSERT!)
-    //    ⚠️  See note below about this
     const [user] = await this.sql`
       INSERT INTO users (username, email)
       VALUES (${username}, ${email})
