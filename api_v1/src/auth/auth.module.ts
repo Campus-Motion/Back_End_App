@@ -3,8 +3,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
-import { ActivitiesController } from 'src/activities/activities.controller';
-import { ActivitiesService } from 'src/activities/activities.service';
+import { ActivitiesController } from '../activities/activities.controller';
+import { ActivitiesService } from '../activities/activities.service';
 
 // auth/auth.module.ts
 @Module({

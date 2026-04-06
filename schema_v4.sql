@@ -82,7 +82,7 @@ CREATE TABLE events (
     id                INTEGER        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     title             VARCHAR        NOT NULL,
     body             TEXT,
-    user_id           INTEGER        NOT NULL,
+    user_id           INTEGER,
     start_location_id INTEGER,
     end_location_id   INTEGER,
     start_time        TIMESTAMP      NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE events (
     created_at        TIMESTAMP      NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_event_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
     CONSTRAINT fk_event_start_location
         FOREIGN KEY (start_location_id) REFERENCES locations (id),
     CONSTRAINT fk_event_end_location
@@ -151,14 +151,14 @@ CREATE TABLE news (
     title        VARCHAR    NOT NULL,
     body         TEXT       NOT NULL,
     photo_url    VARCHAR,
-    author_id    INTEGER    NOT NULL,
+    author_id    INTEGER,
     is_published BOOLEAN    NOT NULL DEFAULT FALSE,
     published_at TIMESTAMP,
     created_at   TIMESTAMP  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMP,
 
     CONSTRAINT fk_news_author
-        FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE CASCADE
+        FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE SET NULL
 );
 
 -- 10. comments (polymorphic: on news OR activity)
@@ -251,6 +251,24 @@ CREATE TABLE audit_log (
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
+-- 15. Activity photos (multiple per activity)
+CREATE TABLE activity_photos (
+  id          SERIAL PRIMARY KEY,
+  activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  photo_url   VARCHAR(500) NOT NULL,
+  position    INTEGER DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 16. Event photos (multiple per event)
+CREATE TABLE event_photos (
+  id          SERIAL PRIMARY KEY,
+  event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  photo_url   VARCHAR(500) NOT NULL,
+  position    INTEGER DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ─────────────────────────────────────────
 -- Triggers
 -- ─────────────────────────────────────────
@@ -292,6 +310,8 @@ CREATE INDEX idx_notifications_user_id     ON notifications (user_id);
 CREATE INDEX idx_notifications_is_read     ON notifications (is_read);
 CREATE INDEX idx_user_follows_follower     ON user_follows (follower_id);
 CREATE INDEX idx_user_follows_following    ON user_follows (following_id);
+CREATE INDEX idx_activity_photos_activity_id ON activity_photos (activity_id);
+CREATE INDEX idx_event_photos_event_id        ON event_photos (event_id);
 
 -- ─────────────────────────────────────────
 -- Permissions (Grants)
@@ -301,14 +321,14 @@ CREATE INDEX idx_user_follows_following    ON user_follows (following_id);
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     locations, users, health_data, events, event_participants,
     activities, activity_waypoints, news, comments, likes,
-    user_follows, notifications
+    user_follows, notifications, event_photos, activity_photos
 TO api_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO api_role;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     locations, users, events, event_participants,
     activities, activity_waypoints, news, comments, likes,
-    user_follows, notifications, audit_log
+    user_follows, notifications, event_photos, activity_photos, audit_log
 TO admin_role;
 
 -- auth_role: ONLY for login / password management
@@ -362,6 +382,99 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY notifications_isolation ON notifications
     FOR ALL TO api_role
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+-- news: authors see all their news; regular users only see published news
+ALTER TABLE news ENABLE ROW LEVEL SECURITY;
+
+-- Regular users only see published news; authors and admins see all
+CREATE POLICY news_select ON news FOR SELECT TO api_role
+    USING (
+        is_published = TRUE
+        OR author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+    );
+
+CREATE POLICY news_insert ON news FOR INSERT TO api_role
+    WITH CHECK (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+CREATE POLICY news_update ON news FOR UPDATE TO api_role
+    USING  (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer)
+    WITH CHECK (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+CREATE POLICY news_delete ON news FOR DELETE TO api_role
+    USING (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+-- comments: can see a comment only if you can see its parent (public activity or yours, or any news)
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+
+-- Can see a comment only if you can see its parent (public activity or yours, or any news)
+CREATE POLICY comments_select ON comments FOR SELECT TO api_role
+    USING (
+        news_id IS NOT NULL  -- news comments always visible (news RLS handles the news itself)
+        OR activity_id IN (
+            SELECT id FROM activities
+            WHERE is_public = TRUE
+               OR user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+        )
+    );
+
+CREATE POLICY comments_insert ON comments FOR INSERT TO api_role
+    WITH CHECK (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+CREATE POLICY comments_update ON comments FOR UPDATE TO api_role
+    USING  (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer)
+    WITH CHECK (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+CREATE POLICY comments_delete ON comments FOR DELETE TO api_role
+    USING (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+-- activity_photos: can see photos only if you can see the parent activity (public or yours)
+ALTER TABLE activity_photos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY activity_photos_select ON activity_photos FOR SELECT TO api_role
+    USING (
+        activity_id IN (
+            SELECT id FROM activities
+            WHERE is_public = TRUE
+               OR user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+        )
+    );
+
+CREATE POLICY activity_photos_insert ON activity_photos FOR INSERT TO api_role
+    WITH CHECK (
+        activity_id IN (
+            SELECT id FROM activities
+            WHERE user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+        )
+    );
+
+CREATE POLICY activity_photos_delete ON activity_photos FOR DELETE TO api_role
+    USING (
+        activity_id IN (
+            SELECT id FROM activities
+            WHERE user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+        )
+    );
+
+-- event_photos: can see photos only if you can see the parent event (yours)
+ALTER TABLE event_photos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY event_photos_select ON event_photos FOR SELECT TO api_role USING (TRUE);
+
+CREATE POLICY event_photos_insert ON event_photos FOR INSERT TO api_role
+    WITH CHECK (
+        event_id IN (
+            SELECT id FROM events
+            WHERE user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+        )
+    );
+
+CREATE POLICY event_photos_delete ON event_photos FOR DELETE TO api_role
+    USING (
+        event_id IN (
+            SELECT id FROM events
+            WHERE user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer
+        )
+    );
 
 -- ─────────────────────────────────────────
 -- Sample Records

@@ -12,9 +12,11 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   ParseBoolPipe,
+  SetMetadata,
 } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { JwtGuard } from '../auth/jwt.guard';
+import { RolesGuard } from '../auth/roles.guard';
 
 @Controller('activities')
 @UseGuards(JwtGuard)
@@ -84,6 +86,8 @@ export class ActivitiesController {
 
   // DELETE /activities/:id
   @Delete(':id')
+  @UseGuards(RolesGuard)
+  @SetMetadata('roles', ['admin']) // Only admins can delete activities
   remove(@Request() req, @Param('id', ParseIntPipe) id: number) {
     return this.activitiesService.remove(req.user.id, id);
   }

@@ -45,7 +45,7 @@ export class AuthService {
   async login(email: string, password: string) {
     // 1. Find user (auth_role has SELECT on users)
     const [user] = await this
-      .sql`SELECT id, username FROM users WHERE email = ${email}`;
+      .sql`SELECT id, username, role FROM users WHERE email = ${email}`;
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     // 2. Get password hash (auth_role has SELECT on user_secret)
@@ -58,9 +58,10 @@ export class AuthService {
     if (!isValid) throw new UnauthorizedException('Invalid credentials');
 
     // 4. Sign and return the JWT
-    const payload = { sub: user.id, username: user.username };
+    const payload = { sub: user.id, username: user.username, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
+      user: { id: user.id, username: user.username, role: user.role },
     };
   }
 }
