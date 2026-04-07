@@ -480,6 +480,11 @@ CREATE POLICY event_photos_delete ON event_photos FOR DELETE TO api_role
 -- Sample Records
 -- ─────────────────────────────────────────
 
+INSERT INTO locations (id, latitude, longitude, label) VALUES
+    (1, 46.5191, 6.5668, 'EPFL Campus'),
+    (2, 46.5210, 6.5650, 'Lausanne Train Station'),
+    (3, 46.5170, 6.5700, 'Lakefront Park');
+
 INSERT INTO users (id, username, email, role) VALUES
     (1, 'Alice',   'alice@epfl.ch',   'admin'),
     (2, 'Bob',     'bob@epfl.ch',     'moderator'),

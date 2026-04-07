@@ -60,8 +60,12 @@ export class AuthService {
     // 4. Sign and return the JWT
     const payload = { sub: user.id, username: user.username, role: user.role };
     return {
-      access_token: this.jwtService.sign(payload),
-      user: { id: user.id, username: user.username, role: user.role },
+      access_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      role: user.role,
+      admin_token:
+        user.role === 'admin'
+          ? this.jwtService.sign(payload, { expiresIn: '15m' }) // 15 minutes only for admin
+          : undefined,
     };
   }
 }
