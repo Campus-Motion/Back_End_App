@@ -19,10 +19,8 @@ CREATE TYPE notification_type AS ENUM ('like', 'comment', 'follow', 'event_join'
 -- ─────────────────────────────────────────
 -- Roles
 -- ─────────────────────────────────────────
--- Note: Add WITH LOGIN PASSWORD '...' in production
-CREATE ROLE api_role WITH LOGIN PASSWORD 'secure_api_password';
-CREATE ROLE auth_role WITH LOGIN PASSWORD 'secure_auth_password';
-CREATE ROLE admin_role WITH LOGIN PASSWORD 'secure_admin_password' BYPASSRLS;
+-- already created in initdb/01_init.sh, 
+-- This is used to keep the secrets (password) in the .env file and not hardcoded in the SQL
 
 -- ─────────────────────────────────────────
 -- Tables
