@@ -328,6 +328,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     activities, activity_waypoints, news, comments, likes,
     user_follows, notifications, event_photos, activity_photos, audit_log
 TO admin_role;
+GrANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO admin_role;
 
 -- auth_role: ONLY for login / password management
 GRANT SELECT, INSERT, UPDATE, DELETE ON user_secret TO auth_role;
