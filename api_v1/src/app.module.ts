@@ -5,11 +5,13 @@ import { ActivitiesModule } from './activities/activities.module'; // ← correc
 import { ConfigModule } from '@nestjs/config';
 import { EventsModule } from './events/events.module';
 import { NewsModule } from './news/news.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
     DatabaseModule,
     AuthModule,
+    UsersModule,
     EventsModule,
     NewsModule,
     ActivitiesModule,

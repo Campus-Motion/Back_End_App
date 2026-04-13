@@ -44,7 +44,8 @@ CREATE TABLE users (
     role          user_role  NOT NULL DEFAULT 'user',
     created_at    TIMESTAMP  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP,
-    last_login_at TIMESTAMP
+    last_login_at TIMESTAMP,
+    deletion_requested_at TIMESTAMP
 );
 
 -- 3. user_secret

@@ -47,6 +47,8 @@ services:
     volumes:
       - uploads_data:/app/uploads
       - uploads_data:/app/uploads/news
+      - uploads_data:/app/uploads/events
+      - uploads_data:/app/uploads/profiles
 
 networks:
   epfl_private_network:
