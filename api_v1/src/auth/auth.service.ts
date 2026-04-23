@@ -8,24 +8,89 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import postgres from 'postgres';
 
+// Shared type — move to src/common/audit.types.ts if used across modules
+export interface AuditContext {
+  ip?: string;
+  userAgent?: string;
+  endpoint?: string;
+  httpMethod?: string;
+  // userId & username are resolved internally for auth actions
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     @Inject('AUTH_DB') private sql: postgres.Sql<{}>,
-    private jwtService: JwtService, // inject JwtService to sign tokens
+    @Inject('AUDIT_DB') private readonly auditDb: postgres.Sql<{}>,
+    private jwtService: JwtService,
   ) {}
 
-  // ─── REGISTER ────────────────────────────────────────────
-  async register(username: string, email: string, password: string) {
+  // ─── Audit helper ──────────────────────────────────────────────────────────
+
+  private async log({
+    userId,
+    username,
+    action,
+    targetTable,
+    targetId,
+    outcome,
+    oldValue,
+    newValue,
+    ctx,
+  }: {
+    userId: number | null;
+    username: string | null;
+    action: string;
+    targetTable: string | null;
+    targetId: number | null;
+    outcome: 'success' | 'failure';
+    oldValue?: Record<string, unknown> | null;
+    newValue?: Record<string, unknown> | null;
+    ctx?: AuditContext;
+  }) {
+    await this.auditDb`
+      INSERT INTO audit_log (
+        user_id, username, action,
+        target_table, target_id,
+        outcome,
+        old_value, new_value,
+        ip_address, user_agent,
+        http_method, endpoint
+      ) VALUES (
+        ${userId},
+        ${username},
+        ${action}::audit_action,
+        ${targetTable},
+        ${targetId},
+        ${outcome},
+        ${oldValue ? JSON.stringify(oldValue) : null},
+        ${newValue ? JSON.stringify(newValue) : null},
+        ${ctx?.ip ?? null},
+        ${ctx?.userAgent ?? null},
+        ${ctx?.httpMethod ?? null},
+        ${ctx?.endpoint ?? null}
+      )
+    `;
+  }
+
+  // ─── REGISTER ─────────────────────────────────────────────────────────────
+
+  async register(
+    username: string,
+    email: string,
+    password: string,
+    ctx?: AuditContext,
+  ) {
     // 1. Check if email already exists
-    const [existing] = await this
-      .sql`SELECT id FROM users WHERE email = ${email}`;
+    const [existing] = await this.sql`
+      SELECT id FROM users WHERE email = ${email}
+    `;
     if (existing) throw new ConflictException('Email already in use');
 
     // 2. Hash the password with Argon2
     const hash = await argon2.hash(password);
 
-    // 3. Insert into users (auth_role has SELECT on users, but not INSERT!)
+    // 3. Insert into users
     const [user] = await this.sql`
       INSERT INTO users (username, email)
       VALUES (${username}, ${email})
@@ -38,33 +103,84 @@ export class AuthService {
       VALUES (${user.id}, ${hash})
     `;
 
+    await this.log({
+      userId: user.id,
+      username: user.username,
+      action: 'auth.register',
+      targetTable: 'users',
+      targetId: user.id,
+      outcome: 'success',
+      newValue: { username: user.username }, // email intentionally omitted — PII
+      ctx,
+    });
+
     return { message: 'User registered successfully', userId: user.id };
   }
 
-  // ─── LOGIN ───────────────────────────────────────────────
-  async login(email: string, password: string) {
-    // 1. Find user (auth_role has SELECT on users)
-    const [user] = await this
-      .sql`SELECT id, username, role FROM users WHERE email = ${email}`;
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+  // ─── LOGIN ────────────────────────────────────────────────────────────────
 
-    // 2. Get password hash (auth_role has SELECT on user_secret)
+  async login(email: string, password: string, ctx?: AuditContext) {
+    // 1. Find user
+    const [user] = await this.sql`
+      SELECT id, username, role FROM users WHERE email = ${email}
+    `;
+
+    if (!user) {
+      // Log failure — user_id is NULL because we don't know who this is.
+      // username stores the attempted email for attack detection.
+      await this.log({
+        userId: null,
+        username: email, // ← attempted identifier, not a real username
+        action: 'auth.login_failure',
+        targetTable: 'users',
+        targetId: null,
+        outcome: 'failure',
+        ctx,
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // 2. Get password hash
     const [secret] = await this.sql`
       SELECT password_hash FROM user_secret WHERE id = ${user.id}
     `;
 
     // 3. Verify with Argon2
     const isValid = await argon2.verify(secret.password_hash, password);
-    if (!isValid) throw new UnauthorizedException('Invalid credentials');
 
-    // 4. Sign and return the JWT
+    if (!isValid) {
+      // Log failure — this time we know the user_id
+      await this.log({
+        userId: user.id,
+        username: user.username,
+        action: 'auth.login_failure',
+        targetTable: 'users',
+        targetId: user.id,
+        outcome: 'failure',
+        ctx,
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // 4. Log success
+    await this.log({
+      userId: user.id,
+      username: user.username,
+      action: 'auth.login_success',
+      targetTable: 'users',
+      targetId: user.id,
+      outcome: 'success',
+      ctx,
+    });
+
+    // 5. Sign and return JWT
     const payload = { sub: user.id, username: user.username, role: user.role };
     return {
       access_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
       role: user.role,
       admin_token:
         user.role === 'admin'
-          ? this.jwtService.sign(payload, { expiresIn: '15m' }) // 15 minutes only for admin
+          ? this.jwtService.sign(payload, { expiresIn: '15m' })
           : undefined,
     };
   }

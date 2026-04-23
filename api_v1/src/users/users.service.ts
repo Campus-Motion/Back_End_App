@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import type { Sql } from 'postgres';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { AdminUserRoleDto } from './dto/admin-user-role.dto';
 
 @Injectable()
 export class UsersService {
@@ -177,64 +176,5 @@ export class UsersService {
     if (result.count === 0)
       throw new NotFoundException('You are not following this user');
     return { message: 'Unfollowed successfully' };
-  }
-
-  // ─── Admin ─────────────────────────────────────────────────────────────────
-
-  async adminListUsers(limit = 20, offset = 0, role?: string) {
-    const rows = await this.adminDb`
-      SELECT id, username, email, photo_url, section, role, created_at, updated_at, last_login_at
-      FROM users
-      ${role ? this.adminDb`WHERE role = ${role}::user_role` : this.adminDb``}
-      ORDER BY created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-
-    const [{ total }] = await this.adminDb`
-      SELECT COUNT(*)::int AS total FROM users
-      ${role ? this.adminDb`WHERE role = ${role}::user_role` : this.adminDb``}
-    `;
-
-    return {
-      data: rows,
-      meta: { total, limit, offset, has_more: offset + rows.length < total },
-    };
-  }
-
-  async adminUpdateRole(
-    targetId: number,
-    dto: AdminUserRoleDto,
-    requestingUser: { id: number; role: string },
-  ) {
-    const [target] = await this.adminDb`
-      SELECT id, role FROM users WHERE id = ${targetId}
-    `;
-    if (!target) throw new NotFoundException(`User #${targetId} not found`);
-
-    // Safety guard: cannot demote another admin
-    if (
-      target.role === 'admin' &&
-      target.id !== requestingUser.id &&
-      dto.role !== 'admin'
-    ) {
-      throw new ForbiddenException('Cannot demote another admin');
-    }
-
-    const [updated] = await this.adminDb`
-      UPDATE users
-      SET role = ${dto.role}::user_role, updated_at = NOW()
-      WHERE id = ${targetId}
-      RETURNING id, username, role
-    `;
-    return updated;
-  }
-
-  async adminDeleteUser(targetId: number) {
-    const [target] = await this
-      .adminDb`SELECT id FROM users WHERE id = ${targetId}`;
-    if (!target) throw new NotFoundException(`User #${targetId} not found`);
-
-    await this.adminDb`DELETE FROM users WHERE id = ${targetId}`;
-    return { message: 'User deleted' };
   }
 }

@@ -15,6 +15,23 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TYPE activity_type     AS ENUM ('run', 'walk', 'cycle', 'hike', 'swim', 'climbing', 'other');
 CREATE TYPE user_role         AS ENUM ('admin', 'moderator', 'user');
 CREATE TYPE notification_type AS ENUM ('like', 'comment', 'follow', 'event_join');
+CREATE TYPE audit_action AS ENUM (
+  'auth.login_success',
+  'auth.login_failure',
+  'auth.logout',
+  'auth.register',
+  'user.update_role',
+  'user.delete',
+  'user.deletion_requested',
+  'user.update_profile',
+  'admin.list_users',
+  'activity.delete',
+  'comment.delete',
+  'health.create',
+  'health.update',
+  'auth.forbidden',
+  'health.delete_requested'
+);
 
 -- ─────────────────────────────────────────
 -- Roles
@@ -238,16 +255,23 @@ CREATE TABLE notifications (
 
 -- 14. audit_log
 CREATE TABLE audit_log (
-    id           SERIAL    PRIMARY KEY,
-    user_id      INTEGER   NOT NULL,
-    action       VARCHAR   NOT NULL,
-    target_table VARCHAR   NOT NULL,
-    target_id    INTEGER   NOT NULL,
-    performed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    id           SERIAL       PRIMARY KEY,
+    user_id      INTEGER,
+    username     VARCHAR,
+    action       audit_action NOT NULL,
+    target_table VARCHAR,
+    target_id    INTEGER,
+    outcome      VARCHAR      NOT NULL DEFAULT 'success',
+    old_value    JSONB,
+    new_value    JSONB,
     ip_address   VARCHAR,
+    user_agent   VARCHAR,
+    http_method  VARCHAR,
+    endpoint     VARCHAR,
+    performed_at TIMESTAMP    NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_audit_user
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 );
 
 -- 15. Activity photos (multiple per activity)
@@ -295,8 +319,6 @@ CREATE INDEX idx_activities_user_id        ON activities (user_id);
 CREATE INDEX idx_activities_event_id       ON activities (event_id);
 CREATE INDEX idx_activities_is_public      ON activities (is_public);
 CREATE INDEX idx_health_data_user_id       ON health_data (user_id);
-CREATE INDEX idx_audit_log_user_id         ON audit_log (user_id);
-CREATE INDEX idx_audit_log_performed_at    ON audit_log (performed_at);
 CREATE INDEX idx_activity_waypoints_act_id ON activity_waypoints (activity_id);
 CREATE INDEX idx_events_user_id            ON events (user_id);
 CREATE INDEX idx_news_author_id            ON news (author_id);
@@ -311,6 +333,10 @@ CREATE INDEX idx_user_follows_follower     ON user_follows (follower_id);
 CREATE INDEX idx_user_follows_following    ON user_follows (following_id);
 CREATE INDEX idx_activity_photos_activity_id ON activity_photos (activity_id);
 CREATE INDEX idx_event_photos_event_id        ON event_photos (event_id);
+CREATE INDEX idx_audit_log_user_id      ON audit_log (user_id);
+CREATE INDEX idx_audit_log_performed_at ON audit_log (performed_at DESC);
+CREATE INDEX idx_audit_log_action       ON audit_log (action);
+CREATE INDEX idx_audit_log_outcome      ON audit_log (outcome);
 
 -- ─────────────────────────────────────────
 -- Permissions (Grants)
@@ -327,14 +353,19 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO api_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     locations, users, events, event_participants,
     activities, activity_waypoints, news, comments, likes,
-    user_follows, notifications, event_photos, activity_photos, audit_log
+    user_follows, notifications, event_photos, activity_photos
 TO admin_role;
-GrANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO admin_role;
+GRANT SELECT, INSERT ON audit_log TO admin_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO admin_role;
 
 -- auth_role: ONLY for login / password management
 GRANT SELECT, INSERT, UPDATE, DELETE ON user_secret TO auth_role;
 GRANT SELECT, INSERT, UPDATE ON users TO auth_role;
 GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO auth_role;
+
+-- audit_writer: can only write to audit_log, no read access
+GRANT INSERT ON audit_log TO audit_writer;
+GRANT USAGE, SELECT ON SEQUENCE audit_log_id_seq TO audit_writer;
 
 -- ─────────────────────────────────────────
 -- Row-Level Security (RLS)

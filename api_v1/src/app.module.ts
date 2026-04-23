@@ -6,6 +6,9 @@ import { ConfigModule } from '@nestjs/config';
 import { EventsModule } from './events/events.module';
 import { NewsModule } from './news/news.module';
 import { UsersModule } from './users/users.module';
+import { AdminModule } from './admin/admin.module';
+import { APP_FILTER } from '@nestjs/core';
+import { ForbiddenExceptionFilter } from './common/filters/forbidden_exception.filter';
 
 @Module({
   imports: [
@@ -15,7 +18,14 @@ import { UsersModule } from './users/users.module';
     EventsModule,
     NewsModule,
     ActivitiesModule,
+    AdminModule,
     ConfigModule.forRoot({ isGlobal: true }),
+  ],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: ForbiddenExceptionFilter,
+    },
   ],
 })
 export class AppModule {}

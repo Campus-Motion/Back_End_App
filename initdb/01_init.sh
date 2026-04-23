@@ -6,8 +6,10 @@ psql -v ON_ERROR_STOP=1 \
   --dbname "$POSTGRES_DB" \
   -v api_password="$API_ROLE_PASSWORD" \
   -v auth_password="$AUTH_ROLE_PASSWORD" \
+  -v secure_audit_password="$SECURE_AUDIT_PASSWORD" \
   -v admin_password="$ADMIN_ROLE_PASSWORD" <<'EOSQL'
 CREATE ROLE api_role WITH LOGIN PASSWORD :'api_password';
 CREATE ROLE auth_role WITH LOGIN PASSWORD :'auth_password';
 CREATE ROLE admin_role WITH LOGIN PASSWORD :'admin_password' BYPASSRLS;
+CREATE ROLE audit_writer WITH LOGIN PASSWORD :'secure_audit_password';
 EOSQL

@@ -26,6 +26,7 @@ async function bootstrap() {
   app.useStaticAssets(uploadsRoot, {
     prefix: '/uploads/',
   });
+  app.set('trust proxy', 1); // trust first proxy hop
 
   await app.listen(process.env.PORT ?? 3000);
 }
