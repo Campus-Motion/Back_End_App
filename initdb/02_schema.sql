@@ -12,7 +12,22 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ─────────────────────────────────────────
 -- Enums
 -- ─────────────────────────────────────────
-CREATE TYPE activity_type     AS ENUM ('run', 'walk', 'cycle', 'hike', 'swim', 'climbing', 'other');
+CREATE TYPE activity_type AS ENUM (
+    'run',
+    'walk',
+    'bike',
+    'hike',
+    'swim',
+    'triathlon',
+    'fitness_trail',
+    'climbing',
+    'volleyball',
+    'basketball',
+    'soccer',
+    'badminton',
+    'tennis',
+    'golf',
+    'other');
 CREATE TYPE user_role         AS ENUM ('admin', 'moderator', 'user');
 CREATE TYPE notification_type AS ENUM ('like', 'comment', 'follow', 'event_join');
 CREATE TYPE audit_action AS ENUM (
@@ -33,6 +48,9 @@ CREATE TYPE audit_action AS ENUM (
   'health.update',
   'health.delete_requested'
 );
+CREATE TYPE training_intensity AS ENUM ('light', 'moderate', 'intense', 'extreme');
+CREATE TYPE fitness_goal       AS ENUM ('lose_weight', 'build_muscle', 'improve_endurance', 'stay_active', 'compete', 'have_fun');
+CREATE TYPE experience_level   AS ENUM ('beginner', 'intermediate', 'advanced', 'expert');
 
 -- ─────────────────────────────────────────
 -- Roles
@@ -60,6 +78,7 @@ CREATE TABLE users (
     photo_url     VARCHAR,
     section       VARCHAR,
     role          user_role  NOT NULL DEFAULT 'user',
+    xp            INTEGER    NOT NULL DEFAULT 0,   -- Not used in v1, but can be used for gamification in the future
     created_at    TIMESTAMP  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP,
     last_login_at TIMESTAMP,
@@ -94,7 +113,28 @@ CREATE TABLE health_data (
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- 5. events
+-- 5. Communities -- NOT YET USED ! add GRANT and RLS when used
+CREATE TABLE communities (
+    id          SERIAL    PRIMARY KEY,
+    name        VARCHAR   NOT NULL UNIQUE,
+    description TEXT,
+    photo_url   VARCHAR,
+    created_by  INTEGER   NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP
+);
+
+-- 6. Community membership + roles -- NOT YET USED ! add GRANT and RLS when used
+CREATE TABLE community_members (
+    user_id      INTEGER   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    community_id INTEGER   NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+    role         VARCHAR   NOT NULL DEFAULT 'member', -- 'member' | 'moderator' | 'admin'
+    joined_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (user_id, community_id)
+);
+
+-- 7. events
 CREATE TABLE events (
     id                INTEGER        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     title             VARCHAR        NOT NULL,
@@ -106,6 +146,7 @@ CREATE TABLE events (
     end_time          TIMESTAMP,
     distance_m        NUMERIC(10,2),
     created_at        TIMESTAMP      NOT NULL DEFAULT NOW(),
+    community_id INTEGER REFERENCES communities(id) ON DELETE SET NULL,
 
     CONSTRAINT fk_event_user
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
@@ -115,7 +156,7 @@ CREATE TABLE events (
         FOREIGN KEY (end_location_id) REFERENCES locations (id)
 );
 
--- 6. event_participants
+-- 8. event_participants
 CREATE TABLE event_participants (
     user_id   INTEGER   NOT NULL,
     event_id  INTEGER   NOT NULL,
@@ -129,7 +170,7 @@ CREATE TABLE event_participants (
         FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
 );
 
--- 7. activities
+-- 9. activities
 CREATE TABLE activities (
     id         SERIAL         PRIMARY KEY,
     title      VARCHAR        NOT NULL,
@@ -148,7 +189,7 @@ CREATE TABLE activities (
         FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE SET NULL
 );
 
--- 8. activity_waypoints
+-- 10. activity_waypoints
 CREATE TABLE activity_waypoints (
     id             SERIAL    PRIMARY KEY,
     activity_id    INTEGER   NOT NULL,
@@ -159,11 +200,11 @@ CREATE TABLE activity_waypoints (
     sequence_order INTEGER   NOT NULL,
 
     CONSTRAINT fk_waypoint_activity
-        FOREIGN KEY (activity_id) REFERENCES activities (id) ON DELETE CASCADE,
+        FOREIGN KEY (activity_id) REFERENCES activities (id) ON DELETE CASCADE
 
 );
 
--- 9. news
+-- 11. news
 CREATE TABLE news (
     id           SERIAL     PRIMARY KEY,
     title        VARCHAR    NOT NULL,
@@ -174,12 +215,13 @@ CREATE TABLE news (
     published_at TIMESTAMP,
     created_at   TIMESTAMP  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMP,
+    community_id INTEGER REFERENCES communities(id) ON DELETE SET NULL,
 
     CONSTRAINT fk_news_author
         FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE SET NULL
 );
 
--- 10. comments (polymorphic: on news OR activity)
+-- 12. comments (polymorphic: on news OR activity)
 CREATE TABLE comments (
     id          SERIAL    PRIMARY KEY,
     author_id   INTEGER   NOT NULL,
@@ -202,7 +244,7 @@ CREATE TABLE comments (
         )
 );
 
--- 11. likes (polymorphic: on news OR activity)
+-- 13. likes (polymorphic: on news OR activity)
 CREATE TABLE likes (
     id          SERIAL  PRIMARY KEY,
     user_id     INTEGER NOT NULL,
@@ -224,7 +266,7 @@ CREATE TABLE likes (
     CONSTRAINT uq_like_activity UNIQUE (user_id, activity_id)
 );
 
--- 12. user_follows
+-- 14. user_follows
 CREATE TABLE user_follows (
     follower_id  INTEGER   NOT NULL,
     following_id INTEGER   NOT NULL,
@@ -240,7 +282,7 @@ CREATE TABLE user_follows (
         CHECK (follower_id <> following_id)
 );
 
--- 13. notifications
+-- 15. notifications
 CREATE TABLE notifications (
     id         SERIAL            PRIMARY KEY,
     user_id    INTEGER           NOT NULL,
@@ -255,7 +297,7 @@ CREATE TABLE notifications (
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- 14. audit_log
+-- 16. audit_log
 CREATE TABLE audit_log (
     id           SERIAL       PRIMARY KEY,
     user_id      INTEGER,
@@ -276,7 +318,7 @@ CREATE TABLE audit_log (
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 );
 
--- 15. Activity photos (multiple per activity)
+-- 17. Activity photos (multiple per activity)
 CREATE TABLE activity_photos (
   id          SERIAL PRIMARY KEY,
   activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
@@ -285,7 +327,7 @@ CREATE TABLE activity_photos (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 16. Event photos (multiple per event)
+-- 18. Event photos (multiple per event)
 CREATE TABLE event_photos (
   id          SERIAL PRIMARY KEY,
   event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE SET NULL,
@@ -294,25 +336,22 @@ CREATE TABLE event_photos (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 17. Communities
-CREATE TABLE communities (
-    id          SERIAL    PRIMARY KEY,
-    name        VARCHAR   NOT NULL UNIQUE,
-    description TEXT,
-    photo_url   VARCHAR,
-    created_by  INTEGER   NOT NULL REFERENCES users(id) ON DELETE SET NULL,
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMP
-);
+-- 19. user_preferences (one row per user, fully optional)
+CREATE TABLE user_preferences (
+    user_id             INTEGER     PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
 
--- 18. Community membership + roles
-CREATE TABLE community_members (
-    user_id      INTEGER   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    community_id INTEGER   NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
-    role         VARCHAR   NOT NULL DEFAULT 'member', -- 'member' | 'moderator' | 'admin'
-    joined_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+    -- Training profile
+    preferred_sports    activity_type[]    DEFAULT '{}',   -- e.g. {run, hike}
+    intensity           training_intensity,
+    goal                fitness_goal,
+    level               experience_level,
 
-    PRIMARY KEY (user_id, community_id)
+    -- Discovery
+    open_to_groups      BOOLEAN     NOT NULL DEFAULT TRUE,   -- show group events
+    open_to_new_sports  BOOLEAN     NOT NULL DEFAULT TRUE,   -- suggest outside comfort zone
+    max_distance_km     NUMERIC(6,2),                        -- how far to travel for an event
+
+    updated_at          TIMESTAMP
 );
 
 -- ─────────────────────────────────────────
@@ -369,7 +408,7 @@ CREATE INDEX idx_audit_log_outcome      ON audit_log (outcome);
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     locations, users, health_data, events, event_participants,
     activities, activity_waypoints, news, comments, likes,
-    user_follows, notifications, event_photos, activity_photos
+    user_follows, notifications, event_photos, activity_photos, user_preferences
 TO api_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO api_role;
 
@@ -398,6 +437,13 @@ GRANT USAGE, SELECT ON SEQUENCE audit_log_id_seq TO audit_writer;
 ALTER TABLE health_data ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY health_data_isolation ON health_data
+    FOR ALL TO api_role
+    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+
+-- user_preferences: strictly private (own row only)
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY user_preferences_isolation ON user_preferences
     FOR ALL TO api_role
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
 

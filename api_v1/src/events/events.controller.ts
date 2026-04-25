@@ -13,6 +13,9 @@ import {
   HttpCode,
   HttpStatus,
   SetMetadata,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -20,6 +23,8 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { QueryEventDto, QueryParticipantsDto } from './dto/query-event.dto';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/file.interceptor';
+import { photoUploadConfig } from '../common/multer/multer.config';
 
 // Shorthand helper for role metadata
 const Roles = (...roles: string[]) => SetMetadata('roles', roles);
@@ -91,5 +96,41 @@ export class EventsController {
   @UseGuards(JwtGuard)
   leaveEvent(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.eventsService.leaveEvent(id, req.user.id);
+  }
+  // ── POST /events/:id/photos ─────────────── admin | moderator ──────────────────
+  @Post(':id/photos')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('admin', 'moderator')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('photo', photoUploadConfig('events')))
+  addPhoto(
+    @Param('id', ParseIntPipe) eventId: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('position') position: string,
+    @Req() req: any,
+  ) {
+    if (!file) throw new BadRequestException('No photo file provided');
+    return this.eventsService.addPhoto(
+      eventId,
+      `/uploads/events/${file.filename}`,
+      req.user,
+      position ? parseInt(position, 10) : 0,
+    );
+  }
+  // ── GET /events/:id/photos ─────────────────────────── Public ─────────────────
+  @Get(':id/photos')
+  getPhotos(@Param('id', ParseIntPipe) eventId: number) {
+    return this.eventsService.getPhotos(eventId);
+  }
+  // ── DELETE /events/:id/photos/:photoId ───────────── admin | moderator ──────────────────
+  @Delete(':id/photos/:photoId')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('admin', 'moderator')
+  removePhoto(
+    @Param('id', ParseIntPipe) eventId: number,
+    @Param('photoId', ParseIntPipe) photoId: number,
+    @Req() req: any,
+  ) {
+    return this.eventsService.removePhoto(eventId, photoId, req.user);
   }
 }

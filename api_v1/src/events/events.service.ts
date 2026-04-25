@@ -18,15 +18,16 @@ export class EventsService {
 
   /** Set RLS context so DB policies know who is acting. */
   private async setRlsContext(userId: number): Promise<void> {
-    await this.sql`SELECT set_config('app.current_user_id', ${String(userId)}, true)`;
+    await this
+      .sql`SELECT set_config('app.current_user_id', ${String(userId)}, true)`;
   }
 
   // ─── GET /events ─────────────────────────────────────────────────────────────
 
   async findAll(query: QueryEventDto) {
-    const limit  = Math.min(query.limit  ?? 20, 100);
+    const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
-    const after  = query.after  ? new Date(query.after)  : null;
+    const after = query.after ? new Date(query.after) : null;
     const before = query.before ? new Date(query.before) : null;
 
     // Build the WHERE clause dynamically using sql fragments
@@ -46,7 +47,7 @@ export class EventsService {
       FROM events e
       LEFT JOIN event_participants ep ON ep.event_id = e.id
       WHERE TRUE
-        ${after  ? this.sql`AND e.start_time > ${after}`  : this.sql``}
+        ${after ? this.sql`AND e.start_time > ${after}` : this.sql``}
         ${before ? this.sql`AND e.start_time < ${before}` : this.sql``}
       GROUP BY e.id
       ORDER BY e.start_time ASC
@@ -57,7 +58,7 @@ export class EventsService {
       SELECT COUNT(*)::int AS total
       FROM events e
       WHERE TRUE
-        ${after  ? this.sql`AND e.start_time > ${after}`  : this.sql``}
+        ${after ? this.sql`AND e.start_time > ${after}` : this.sql``}
         ${before ? this.sql`AND e.start_time < ${before}` : this.sql``}
     `;
 
@@ -119,13 +120,13 @@ export class EventsService {
         distance_m, start_location_id, end_location_id
       ) VALUES (
         ${dto.title},
-        ${dto.body       ?? null},
+        ${dto.body ?? null},
         ${userId},
         ${new Date(dto.start_time)},
-        ${dto.end_time   ? new Date(dto.end_time) : null},
+        ${dto.end_time ? new Date(dto.end_time) : null},
         ${dto.distance_m ?? null},
         ${dto.start_location_id ?? null},
-        ${dto.end_location_id   ?? null}
+        ${dto.end_location_id ?? null}
       )
       RETURNING *
     `;
@@ -134,7 +135,11 @@ export class EventsService {
 
   // ─── PUT /events/:id ─────────────────────────────────────────────────────────
 
-  async update(id: number, dto: UpdateEventDto, requestingUser: { id: number; role: string }) {
+  async update(
+    id: number,
+    dto: UpdateEventDto,
+    requestingUser: { id: number; role: string },
+  ) {
     const [existing] = await this.sql`SELECT * FROM events WHERE id = ${id}`;
     if (!existing) throw new NotFoundException(`Event #${id} not found`);
 
@@ -146,13 +151,13 @@ export class EventsService {
 
     const [updated] = await this.sql`
       UPDATE events SET
-        title             = COALESCE(${dto.title             ?? null}, title),
-        body              = COALESCE(${dto.body              ?? null}, body),
-        start_time        = COALESCE(${dto.start_time        ? new Date(dto.start_time) : null}, start_time),
-        end_time          = COALESCE(${dto.end_time          ? new Date(dto.end_time)   : null}, end_time),
-        distance_m        = COALESCE(${dto.distance_m        ?? null}, distance_m),
+        title             = COALESCE(${dto.title ?? null}, title),
+        body              = COALESCE(${dto.body ?? null}, body),
+        start_time        = COALESCE(${dto.start_time ? new Date(dto.start_time) : null}, start_time),
+        end_time          = COALESCE(${dto.end_time ? new Date(dto.end_time) : null}, end_time),
+        distance_m        = COALESCE(${dto.distance_m ?? null}, distance_m),
         start_location_id = COALESCE(${dto.start_location_id ?? null}, start_location_id),
-        end_location_id   = COALESCE(${dto.end_location_id   ?? null}, end_location_id)
+        end_location_id   = COALESCE(${dto.end_location_id ?? null}, end_location_id)
       WHERE id = ${id}
       RETURNING *
     `;
@@ -214,7 +219,7 @@ export class EventsService {
     const [event] = await this.sql`SELECT id FROM events WHERE id = ${eventId}`;
     if (!event) throw new NotFoundException(`Event #${eventId} not found`);
 
-    const limit  = Math.min(query.limit  ?? 20, 100);
+    const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
 
     const participants = await this.sql`
@@ -241,5 +246,69 @@ export class EventsService {
         has_more: offset + participants.length < total,
       },
     };
+  }
+  // ─── PHOTOS ──────────────────────────────────────────────────────────────────
+
+  async addPhoto(
+    eventId: number,
+    photoUrl: string,
+    requestingUser: { id: number; role: string },
+    position: number = 0,
+  ) {
+    const [event] = await this
+      .sql`SELECT id, user_id FROM events WHERE id = ${eventId}`;
+    if (!event) throw new NotFoundException(`Event #${eventId} not found`);
+
+    const isAdmin = requestingUser.role === 'admin';
+    if (!isAdmin && event.user_id !== requestingUser.id) {
+      throw new ForbiddenException(
+        'You can only add photos to events you created',
+      );
+    }
+
+    const [photo] = await this.sql`
+    INSERT INTO event_photos (event_id, photo_url, position)
+    VALUES (${eventId}, ${photoUrl}, ${position})
+    RETURNING *
+  `;
+    return photo;
+  }
+
+  async getPhotos(eventId: number) {
+    const [event] = await this.sql`SELECT id FROM events WHERE id = ${eventId}`;
+    if (!event) throw new NotFoundException(`Event #${eventId} not found`);
+
+    return this.sql`
+    SELECT * FROM event_photos
+    WHERE event_id = ${eventId}
+    ORDER BY position ASC, created_at ASC
+  `;
+  }
+
+  async removePhoto(
+    eventId: number,
+    photoId: number,
+    requestingUser: { id: number; role: string },
+  ) {
+    const [event] = await this
+      .sql`SELECT id, user_id FROM events WHERE id = ${eventId}`;
+    if (!event) throw new NotFoundException(`Event #${eventId} not found`);
+
+    const isAdmin = requestingUser.role === 'admin';
+    if (!isAdmin && event.user_id !== requestingUser.id) {
+      throw new ForbiddenException(
+        'You can only delete photos from events you created',
+      );
+    }
+
+    const result = await this.sql`
+    DELETE FROM event_photos
+    WHERE id = ${photoId} AND event_id = ${eventId}
+    RETURNING id
+  `;
+    if (result.length === 0)
+      throw new NotFoundException(`Photo #${photoId} not found`);
+
+    return { message: 'Photo deleted' };
   }
 }

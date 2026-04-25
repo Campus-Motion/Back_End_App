@@ -26,6 +26,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { photoUploadConfig } from '../common/multer/multer.config';
 import { CreateWaypointsDto } from './dto/create-waypoint.dto';
+import { CreateActivityDto } from './dto/create-activities.dto';
 
 @Controller('activities')
 @UseGuards(JwtGuard)
@@ -61,24 +62,14 @@ export class ActivitiesController {
 
   // POST /activities
   @Post()
-  create(
-    @Request() req,
-    @Body()
-    body: {
-      title: string;
-      type: string;
-      body?: string;
-      is_public?: boolean;
-      event_id?: number;
-    },
-  ) {
+  create(@Request() req, @Body() dto: CreateActivityDto) {
     return this.activitiesService.create(
       req.user.id,
-      body.title,
-      body.type,
-      body.body,
-      body.is_public ?? false,
-      body.event_id,
+      dto.title,
+      dto.type,
+      dto.body,
+      dto.is_public ?? false,
+      dto.event_id,
     );
   }
 
@@ -87,10 +78,9 @@ export class ActivitiesController {
   update(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
-    @Body()
-    body: { title?: string; type?: string; body?: string; is_public?: boolean },
+    @Body() dto: CreateActivityDto,
   ) {
-    return this.activitiesService.update(req.user.id, id, body);
+    return this.activitiesService.update(req.user.id, id, dto);
   }
 
   // DELETE /activities/:id

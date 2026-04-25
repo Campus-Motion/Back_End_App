@@ -210,12 +210,71 @@ Upload a profile picture.
 
 - **Access:** Authenticated
 - **Content-Type:** `multipart/form-data`
-- **Body:** form field `photo` containing the image file (JPEG, PNG, WebP — max 5MB)
+- **Body:** form field `photo` containing the image file (JPEG, PNG, WebP — max 10MB)
 - **Returns:** `200`
 
 ```json
 { "photo_url": "/uploads/profiles/a3f8c2d1-9b4e-4f2a-b1c2.jpg" }
 ```
+
+---
+
+#### `GET /users/me/preferences`
+
+Get the current user's activity preferences. Returns default values if no preferences have been set yet.
+
+- **Access:** Authenticated
+- **Returns:** `200`
+
+```json
+{
+  "user_id": 5,
+  "preferred_sports": ["run", "hike"],
+  "intensity": "moderate",
+  "goal": "improve_endurance",
+  "level": "intermediate",
+  "open_to_groups": true,
+  "open_to_new_sports": false,
+  "max_distance_km": 25.0,
+  "updated_at": "2026-04-25T11:00:00Z"
+}
+```
+
+---
+
+#### `PUT /users/me/preferences`
+
+Create or update the current user's activity preferences. All fields are optional — only the fields provided will be updated. Used to generate tailored activity and event recommendations.
+
+- **Access:** Authenticated
+- **Body (all fields optional):**
+
+```json
+{
+  "preferred_sports": ["run", "hike"],
+  "intensity": "moderate",
+  "goal": "improve_endurance",
+  "level": "intermediate",
+  "open_to_groups": true,
+  "open_to_new_sports": false,
+  "max_distance_km": 25.0
+}
+```
+
+- **Field values:**
+
+| Field                | Accepted values                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `preferred_sports`   | `run` `walk` `cycle` `hike` `swim` `triathlon` `fitness_trail` `climbing` `volleyball` `basketball` `soccer` `badminton` `tennis` `golf` `other` |
+| `intensity`          | `light` `moderate` `intense` `extreme`                                                                                                           |
+| `goal`               | `lose_weight` `build_muscle` `improve_endurance` `stay_active` `compete` `have_fun`                                                              |
+| `level`              | `beginner` `intermediate` `advanced` `expert`                                                                                                    |
+| `open_to_groups`     | `true` `false`                                                                                                                                   |
+| `open_to_new_sports` | `true` `false`                                                                                                                                   |
+| `max_distance_km`    | number between `1` and `500`                                                                                                                     |
+
+- **Returns:** `200` — full updated preferences object
+- **Errors:** `400` if any field value is not in the accepted list
 
 ---
 
@@ -459,14 +518,14 @@ Add GPS waypoints to an activity (route tracking).
     {
       "latitude": 46.5197,
       "longitude": 6.6323,
-      "altitude": 3.3,
+      "altitude_m": 3.3,
       "recorded_at": "2026-03-26T08:01:00Z",
       "sequence_order": 1
     },
     {
       "latitude": 46.52,
       "longitude": 6.633,
-      "altitude": 3.4,
+      "altitude_m": 3.4,
       "recorded_at": "2026-03-26T08:02:00Z",
       "sequence_order": 2
     }

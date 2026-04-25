@@ -24,6 +24,7 @@ import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtGuard } from '../auth/jwt.guard';
 import { photoUploadConfig } from '../common/multer/multer.config';
+import { UpdatePreferencesDto } from './dto/update-preference.dto';
 
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const uploadsRoot = join(__dirname, '..', '..', 'uploads');
@@ -80,6 +81,20 @@ export class UsersController {
       req.user.id,
       auditCtx(req, 'DELETE', 'users/me'),
     );
+  }
+
+  // ─── Preferences ─────────────────────────────────────────────────────────────
+
+  @Get('me/preferences')
+  @UseGuards(JwtGuard)
+  getPreferences(@Req() req: any) {
+    return this.usersService.getPreferences(req.user.id);
+  }
+
+  @Put('me/preferences')
+  @UseGuards(JwtGuard)
+  upsertPreferences(@Body() dto: UpdatePreferencesDto, @Req() req: any) {
+    return this.usersService.upsertPreferences(req.user.id, dto);
   }
 
   // ─── Public profiles ──────────────────────────────────────────────────────
