@@ -19,9 +19,10 @@ async function bootstrap() {
   const uploadsRoot = join(__dirname, '..', 'uploads');
   const newsUploadsDir = join(uploadsRoot, 'news');
   const profileUploadsDir = join(uploadsRoot, 'profiles');
+  const activityUploadsDir = join(uploadsRoot, 'activities');
   mkdirSync(newsUploadsDir, { recursive: true });
   mkdirSync(profileUploadsDir, { recursive: true });
-  mkdirSync(newsUploadsDir, { recursive: true });
+  mkdirSync(activityUploadsDir, { recursive: true });
 
   app.useStaticAssets(uploadsRoot, {
     prefix: '/uploads/',

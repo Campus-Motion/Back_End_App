@@ -110,6 +110,44 @@ Authenticate and receive a JWT.
 
 ---
 
+#### `PUT /auth/password`
+
+Change the password of the current user.
+
+- **Access:** Authenticated
+- **Body:**
+
+```json
+{
+  "current_password": "secure1",
+  "new_password": "moreSecure"
+}
+```
+
+- **Returns:** `200`
+
+```json
+{ "message": "password modified sucessfully" }
+```
+
+- **Errors:** `401` if credential are invalid.
+
+---
+
+#### `POST /auth/logout`
+
+Record a logout event in the audit log. Since JWT is stateless, this does not invalidate the token server-side — the client is responsible for discarding it.
+
+- **Access:** Authenticated
+
+- **Returns:** `200`
+
+```json
+{ "message": "Logged out successfully" }
+```
+
+---
+
 ### Users
 
 #### `GET /users/me`
@@ -413,7 +451,7 @@ Delete an activity.
 Add GPS waypoints to an activity (route tracking).
 
 - **Access:** Authenticated (owner only)
-- **Body:**
+- **Body:** _Altitude is an optional field_
 
 ```json
 {
@@ -421,12 +459,14 @@ Add GPS waypoints to an activity (route tracking).
     {
       "latitude": 46.5197,
       "longitude": 6.6323,
+      "altitude": 3.3,
       "recorded_at": "2026-03-26T08:01:00Z",
       "sequence_order": 1
     },
     {
       "latitude": 46.52,
       "longitude": 6.633,
+      "altitude": 3.4,
       "recorded_at": "2026-03-26T08:02:00Z",
       "sequence_order": 2
     }
@@ -914,6 +954,216 @@ Request deletion of health data only (RGPD — separate from full account deleti
 ```json
 { "message": "Health data deletion request registered" }
 ```
+
+---
+
+## Activity Photos
+
+#### `POST /activities/:id/photos`
+
+Upload a photo to an activity. Multiple photos can be added to the same activity.
+
+- **Access:** Authenticated (owner only)
+- **Content-Type:** `multipart/form-data`
+- **Body:** form field `photo` containing the image file (JPEG, PNG, WebP — max 10MB), optional field `position` (integer, defaults to `0`)
+- **Returns:** `201`
+
+```json
+{
+  "id": 3,
+  "activity_id": 12,
+  "photo_url": "/uploads/activities/2d1660f3-d45e-4e22-ac52-620154af5372.png",
+  "position": 0,
+  "created_at": "2026-04-23T11:00:00Z"
+}
+```
+
+- **Errors:** `403` if not owner, `404` if activity not found
+
+---
+
+#### `GET /activities/:id/photos`
+
+Get all photos attached to an activity.
+
+- **Access:** Authenticated (owner, or public activity)
+- **Returns:** `200` — ordered array of photo objects
+
+```json
+[
+  {
+    "id": 1,
+    "activity_id": 12,
+    "photo_url": "/uploads/activities/uuid-1.png",
+    "position": 0,
+    "created_at": "2026-04-23T11:00:00Z"
+  },
+  {
+    "id": 2,
+    "activity_id": 12,
+    "photo_url": "/uploads/activities/uuid-2.jpg",
+    "position": 1,
+    "created_at": "2026-04-23T11:05:00Z"
+  }
+]
+```
+
+- **Errors:** `403` if activity is private and not owner, `404` if activity not found
+
+---
+
+#### `DELETE /activities/:id/photos/:photoId`
+
+Delete a specific photo from an activity.
+
+- **Access:** Authenticated (owner only)
+- **Returns:** `200`
+
+```json
+{ "message": "Photo deleted" }
+```
+
+- **Errors:** `403` if not owner, `404` if photo or activity not found
+
+---
+
+## Event Photos
+
+#### `POST /events/:id/photos`
+
+Upload a photo to an event.
+
+- **Access:** `admin` or `moderator` (creator only)
+- **Content-Type:** `multipart/form-data`
+- **Body:** form field `photo` (JPEG, PNG, WebP — max 10MB), optional field `position` (integer, defaults to `0`)
+- **Returns:** `201`
+
+```json
+{
+  "id": 5,
+  "event_id": 2,
+  "photo_url": "/uploads/events/3a9f72b1-cc1d-41ea-9e7e-d7f9b1234567.jpg",
+  "position": 0,
+  "created_at": "2026-04-23T11:00:00Z"
+}
+```
+
+- **Errors:** `403` if not creator or insufficient role, `404` if event not found
+
+---
+
+#### `GET /events/:id/photos`
+
+Get all photos attached to an event.
+
+- **Access:** Public
+- **Returns:** `200` — ordered array of photo objects
+
+```json
+[
+  {
+    "id": 1,
+    "event_id": 2,
+    "photo_url": "/uploads/events/uuid-1.jpg",
+    "position": 0,
+    "created_at": "2026-04-23T11:00:00Z"
+  }
+]
+```
+
+- **Errors:** `404` if event not found
+
+---
+
+#### `DELETE /events/:id/photos/:photoId`
+
+Delete a specific photo from an event.
+
+- **Access:** `admin` or `moderator` (creator only)
+- **Returns:** `200`
+
+```json
+{ "message": "Photo deleted" }
+```
+
+- **Errors:** `403` if not creator or insufficient role, `404` if photo or event not found
+
+---
+
+## Locations
+
+#### `GET /locations`
+
+List all available locations (used as event start/end points).
+
+- **Access:** Public
+- **Query params:** `limit`, `offset`
+- **Returns:** `200` — paginated array of location objects
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "latitude": 46.519653,
+      "longitude": 6.632273,
+      "label": "EPFL Main Gate"
+    },
+    {
+      "id": 2,
+      "latitude": 46.521076,
+      "longitude": 6.567623,
+      "label": "Lausanne Ouchy"
+    }
+  ],
+  "meta": { "total": 8, "limit": 20, "offset": 0, "has_more": false }
+}
+```
+
+---
+
+#### `POST /locations`
+
+Create a new location.
+
+- **Access:** `admin` or `moderator`
+- **Body:**
+
+```json
+{
+  "latitude": 46.519653,
+  "longitude": 6.632273,
+  "label": "EPFL Main Gate"
+}
+```
+
+- **Returns:** `201`
+
+```json
+{
+  "id": 9,
+  "latitude": 46.519653,
+  "longitude": 6.632273,
+  "label": "EPFL Main Gate"
+}
+```
+
+- **Errors:** `400` if `latitude` or `longitude` are missing or out of range
+
+---
+
+#### `DELETE /locations/:id`
+
+Delete a location. Will fail if the location is currently referenced by an event.
+
+- **Access:** `admin` only
+- **Returns:** `200`
+
+```json
+{ "message": "Location deleted" }
+```
+
+- **Errors:** `409` if location is still referenced by one or more events, `404` if not found
 
 ---
 

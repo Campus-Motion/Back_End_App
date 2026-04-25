@@ -7,13 +7,61 @@ import {
 } from '@nestjs/common';
 import type { Sql } from 'postgres';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AuditContext } from '../auth/auth.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @Inject('API_DB') private readonly apiDb: Sql,
     @Inject('ADMIN_DB') private readonly adminDb: Sql,
+    @Inject('AUDIT_DB') private readonly auditDb: Sql,
   ) {}
+
+  private async log({
+    userId,
+    username,
+    action,
+    targetTable,
+    targetId,
+    outcome,
+    oldValue,
+    newValue,
+    ctx,
+  }: {
+    userId: number | null;
+    username: string | null;
+    action: string;
+    targetTable: string | null;
+    targetId: number | null;
+    outcome: 'success' | 'failure';
+    oldValue?: Record<string, unknown> | null;
+    newValue?: Record<string, unknown> | null;
+    ctx?: AuditContext;
+  }) {
+    await this.auditDb`
+      INSERT INTO audit_log (
+        user_id, username, action,
+        target_table, target_id,
+        outcome,
+        old_value, new_value,
+        ip_address, user_agent,
+        http_method, endpoint
+      ) VALUES (
+        ${userId},
+        ${username},
+        ${action}::audit_action,
+        ${targetTable},
+        ${targetId},
+        ${outcome},
+        ${oldValue ? JSON.stringify(oldValue) : null},
+        ${newValue ? JSON.stringify(newValue) : null},
+        ${ctx?.ip ?? null},
+        ${ctx?.userAgent ?? null},
+        ${ctx?.httpMethod ?? null},
+        ${ctx?.endpoint ?? null}
+      )
+    `;
+  }
 
   // ─── Own profile ───────────────────────────────────────────────────────────
 
@@ -65,12 +113,28 @@ export class UsersService {
     return updated;
   }
 
-  async requestDeletion(userId: number) {
-    await this.adminDb`
-      UPDATE users
-      SET deletion_requested_at = NOW(), updated_at = NOW()
-      WHERE id = ${userId}
-    `;
+  async requestDeletion(userId: number, ctx?: AuditContext) {
+    const [user] = await this.apiDb`
+    SELECT username FROM users WHERE id = ${userId}
+  `;
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.apiDb`
+    UPDATE users
+    SET deletion_requested_at = NOW(), updated_at = NOW()
+    WHERE id = ${userId}
+  `;
+
+    await this.log({
+      userId,
+      username: user.username,
+      action: 'user.deletion_requested',
+      targetTable: 'users',
+      targetId: userId,
+      outcome: 'success',
+      ctx,
+    });
+
     return { message: 'Deletion request registered' };
   }
 

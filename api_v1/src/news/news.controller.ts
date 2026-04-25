@@ -28,6 +28,7 @@ import { QueryNewsDto } from './dto/query-news.dto';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { join } from 'path';
+import { photoUploadConfig } from '../common/multer/multer.config';
 
 const Roles = (...roles: string[]) => SetMetadata('roles', roles);
 
@@ -71,39 +72,13 @@ export class NewsController {
   @Post(':id/photo')
   @UseGuards(JwtGuard, RolesGuard)
   @Roles('admin', 'moderator')
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: join(uploadsRoot, 'news'),
-        filename: (_req, file, cb) => {
-          const extension = extname(file.originalname).toLowerCase();
-          cb(null, `${randomUUID()}${extension}`);
-        },
-      }),
-      limits: {
-        fileSize: 10 * 1024 * 1024,
-      },
-      fileFilter: (_req, file, cb) => {
-        if (!allowedMimeTypes.includes(file.mimetype)) {
-          return cb(
-            new BadRequestException(
-              'Only JPEG, PNG, and WebP files are allowed',
-            ),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('photo', photoUploadConfig('news')))
   async uploadPhoto(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
   ) {
-    if (!file) {
-      throw new BadRequestException('photo file is required');
-    }
+    if (!file) throw new BadRequestException('photo file is required');
 
     const photoUrl = `/uploads/news/${file.filename}`;
     return this.newsService.updatePhoto(id, photoUrl, req.user);

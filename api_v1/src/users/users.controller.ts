@@ -23,9 +23,21 @@ import { randomUUID } from 'crypto';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtGuard } from '../auth/jwt.guard';
+import { photoUploadConfig } from '../common/multer/multer.config';
 
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const uploadsRoot = join(__dirname, '..', '..', 'uploads');
+
+function auditCtx(req: any, method: string, endpoint: string) {
+  return {
+    userId: req.user.id,
+    username: req.user.username,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    httpMethod: method,
+    endpoint,
+  };
+}
 
 @Controller('users')
 export class UsersController {
@@ -33,43 +45,24 @@ export class UsersController {
 
   // ─── Own profile (must come before :id routes!) ───────────────────────────
 
+  // GET /users/me
   @Get('me')
   @UseGuards(JwtGuard)
   getMe(@Req() req: any) {
     return this.usersService.getMe(req.user.id);
   }
 
+  // PUT /users/me
   @Put('me')
   @UseGuards(JwtGuard)
   updateMe(@Body() dto: UpdateUserDto, @Req() req: any) {
     return this.usersService.updateMe(req.user.id, dto);
   }
 
+  // POST /users/me/photo
   @Post('me/photo')
   @UseGuards(JwtGuard)
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: join(uploadsRoot, 'profiles'),
-        filename: (_req, file, cb) => {
-          const extension = extname(file.originalname).toLowerCase();
-          cb(null, `${randomUUID()}${extension}`);
-        },
-      }),
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-      fileFilter: (_req, file, cb) => {
-        if (!allowedMimeTypes.includes(file.mimetype)) {
-          return cb(
-            new BadRequestException(
-              'Only JPEG, PNG, and WebP files are allowed',
-            ),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('photo', photoUploadConfig('profiles')))
   async uploadPhoto(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
@@ -79,10 +72,14 @@ export class UsersController {
     return this.usersService.updatePhoto(req.user.id, photoUrl);
   }
 
+  // DELETE /users/me
   @Delete('me')
   @UseGuards(JwtGuard)
   requestDeletion(@Req() req: any) {
-    return this.usersService.requestDeletion(req.user.id);
+    return this.usersService.requestDeletion(
+      req.user.id,
+      auditCtx(req, 'DELETE', 'users/me'),
+    );
   }
 
   // ─── Public profiles ──────────────────────────────────────────────────────

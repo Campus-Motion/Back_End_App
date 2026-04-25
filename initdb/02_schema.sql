@@ -20,6 +20,8 @@ CREATE TYPE audit_action AS ENUM (
   'auth.login_failure',
   'auth.logout',
   'auth.register',
+  'auth.password_change',
+  'auth.forbidden',
   'user.update_role',
   'user.delete',
   'user.deletion_requested',
@@ -29,7 +31,6 @@ CREATE TYPE audit_action AS ENUM (
   'comment.delete',
   'health.create',
   'health.update',
-  'auth.forbidden',
   'health.delete_requested'
 );
 
@@ -151,14 +152,15 @@ CREATE TABLE activities (
 CREATE TABLE activity_waypoints (
     id             SERIAL    PRIMARY KEY,
     activity_id    INTEGER   NOT NULL,
-    location_id    INTEGER   NOT NULL,
+    latitude       NUMERIC(9,6) NOT NULL,
+    longitude      NUMERIC(9,6) NOT NULL,
+    altitude_m     NUMERIC(7,2),
     recorded_at    TIMESTAMP NOT NULL,
     sequence_order INTEGER   NOT NULL,
 
     CONSTRAINT fk_waypoint_activity
         FOREIGN KEY (activity_id) REFERENCES activities (id) ON DELETE CASCADE,
-    CONSTRAINT fk_waypoint_location
-        FOREIGN KEY (location_id) REFERENCES locations (id)
+
 );
 
 -- 9. news
@@ -286,10 +288,31 @@ CREATE TABLE activity_photos (
 -- 16. Event photos (multiple per event)
 CREATE TABLE event_photos (
   id          SERIAL PRIMARY KEY,
-  event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE SET NULL,
   photo_url   VARCHAR(500) NOT NULL,
   position    INTEGER DEFAULT 0,
   created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 17. Communities
+CREATE TABLE communities (
+    id          SERIAL    PRIMARY KEY,
+    name        VARCHAR   NOT NULL UNIQUE,
+    description TEXT,
+    photo_url   VARCHAR,
+    created_by  INTEGER   NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP
+);
+
+-- 18. Community membership + roles
+CREATE TABLE community_members (
+    user_id      INTEGER   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    community_id INTEGER   NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+    role         VARCHAR   NOT NULL DEFAULT 'member', -- 'member' | 'moderator' | 'admin'
+    joined_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (user_id, community_id)
 );
 
 -- ─────────────────────────────────────────

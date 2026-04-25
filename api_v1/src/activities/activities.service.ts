@@ -136,4 +136,152 @@ export class ActivitiesService {
       return { message: 'Activity deleted successfully' };
     });
   }
+
+  // ─── WAYPOINTS ───────────────────────────────────────────────────────────────
+
+  async addWaypoints(
+    userId: number,
+    activityId: number,
+    waypoints: {
+      latitude: number;
+      longitude: number;
+      altitude_m?: number;
+      recorded_at: string;
+      sequence_order: number;
+    }[],
+  ) {
+    return this.sql.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+
+      const [activity] = await sql`
+      SELECT id, user_id FROM activities WHERE id = ${activityId}
+    `;
+      if (!activity)
+        throw new NotFoundException(
+          `Activity #${activityId} not found or access denied`,
+        );
+      if (activity.user_id !== userId)
+        throw new ForbiddenException(
+          'You can only add waypoints to your own activities',
+        );
+
+      const rows = waypoints.map((wp) => ({
+        activity_id: activityId,
+        latitude: wp.latitude,
+        longitude: wp.longitude,
+        altitude_m: wp.altitude_m ?? null,
+        recorded_at: wp.recorded_at,
+        sequence_order: wp.sequence_order,
+      }));
+
+      const inserted = await sql`
+      INSERT INTO activity_waypoints ${sql(rows)}
+      RETURNING *
+    `;
+
+      return { inserted: inserted.length, waypoints: inserted };
+    });
+  }
+
+  async getWaypoints(userId: number, activityId: number) {
+    return this.sql.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+
+      const [activity] =
+        await sql`SELECT id FROM activities WHERE id = ${activityId}`;
+      if (!activity)
+        throw new NotFoundException(
+          `Activity #${activityId} not found or access denied`,
+        );
+
+      return sql`
+      SELECT id, sequence_order, recorded_at, latitude, longitude, altitude_m
+      FROM activity_waypoints
+      WHERE activity_id = ${activityId}
+      ORDER BY sequence_order ASC
+    `;
+    });
+  }
+
+  // ─── PHOTOS ────────────────────────────────────────────────────────────────
+
+  async addPhoto(
+    userId: number,
+    activityId: number,
+    photoUrl: string,
+    position: number = 0,
+  ) {
+    return this.sql.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+
+      // RLS will block SELECT if private + not owner — use it to gate access
+      const [activity] = await sql`
+      SELECT id, user_id FROM activities WHERE id = ${activityId}
+    `;
+      if (!activity)
+        throw new NotFoundException(
+          `Activity #${activityId} not found or access denied`,
+        );
+      if (activity.user_id !== userId)
+        throw new ForbiddenException(
+          'You can only add photos to your own activities',
+        );
+
+      const [photo] = await sql`
+      INSERT INTO activity_photos (activity_id, photo_url, position)
+      VALUES (${activityId}, ${photoUrl}, ${position})
+      RETURNING *
+    `;
+      return photo;
+    });
+  }
+
+  async getPhotos(userId: number, activityId: number) {
+    return this.sql.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+
+      // This SELECT goes through RLS — 404s if private + not owner
+      const [activity] =
+        await sql`SELECT id FROM activities WHERE id = ${activityId}`;
+      if (!activity)
+        throw new NotFoundException(
+          `Activity #${activityId} not found or access denied`,
+        );
+
+      return sql`
+      SELECT * FROM activity_photos
+      WHERE activity_id = ${activityId}
+      ORDER BY position ASC, created_at ASC
+    `;
+    });
+  }
+
+  async removePhoto(userId: number, activityId: number, photoId: number) {
+    return this.sql.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+
+      // Verify ownership — RLS on activities guarantees the user can see it
+      const [activity] = await sql`
+      SELECT user_id FROM activities WHERE id = ${activityId}
+    `;
+      if (!activity)
+        throw new NotFoundException(
+          `Activity #${activityId} not found or access denied`,
+        );
+      if (activity.user_id !== userId)
+        throw new ForbiddenException(
+          'You can only delete photos from your own activities',
+        );
+
+      const result = await sql`
+      DELETE FROM activity_photos
+      WHERE id = ${photoId} AND activity_id = ${activityId}
+      RETURNING id
+    `;
+      if (result.length === 0)
+        throw new NotFoundException(`Photo #${photoId} not found`);
+
+      return { message: 'Photo deleted' };
+    });
+  }
 }

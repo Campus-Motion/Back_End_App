@@ -12,11 +12,20 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   ParseBoolPipe,
+  UploadedFile,
   SetMetadata,
+  HttpCode,
+  HttpStatus,
+  Req,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { photoUploadConfig } from '../common/multer/multer.config';
+import { CreateWaypointsDto } from './dto/create-waypoint.dto';
 
 @Controller('activities')
 @UseGuards(JwtGuard)
@@ -90,5 +99,62 @@ export class ActivitiesController {
   @SetMetadata('roles', ['admin']) // Only admins can delete activities
   remove(@Request() req, @Param('id', ParseIntPipe) id: number) {
     return this.activitiesService.remove(req.user.id, id);
+  }
+
+  // POST /activities/:id/waypoints
+  @Post(':id/waypoints')
+  @HttpCode(HttpStatus.CREATED)
+  addWaypoints(
+    @Param('id', ParseIntPipe) activityId: number,
+    @Body() dto: CreateWaypointsDto,
+    @Req() req: any,
+  ) {
+    return this.activitiesService.addWaypoints(
+      req.user.id,
+      activityId,
+      dto.waypoints,
+    );
+  }
+
+  // GET /activities/:id/waypoints
+  @Get(':id/waypoints')
+  getWaypoints(@Param('id', ParseIntPipe) activityId: number, @Req() req: any) {
+    return this.activitiesService.getWaypoints(req.user.id, activityId);
+  }
+  // POST /activities/:id/photos
+  @Post(':id/photos')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('photo', photoUploadConfig('activities')))
+  addPhoto(
+    @Param('id', ParseIntPipe) activityId: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('position') position: string,
+    @Req() req: any,
+  ) {
+    if (!file) throw new BadRequestException('No photo file provided');
+    const photoUrl = `/uploads/activities/${file.filename}`;
+    return this.activitiesService.addPhoto(
+      req.user.id,
+      activityId,
+      photoUrl,
+      position ? parseInt(position, 10) : 0,
+    );
+  }
+
+  // GET /activities/:id/photos
+  @Get(':id/photos')
+  getPhotos(@Param('id', ParseIntPipe) activityId: number, @Req() req: any) {
+    return this.activitiesService.getPhotos(req.user.id, activityId);
+  }
+
+  // DELETE /activities/:id/photos/:photoId
+  @Delete(':id/photos/:photoId')
+  @HttpCode(HttpStatus.OK)
+  removePhoto(
+    @Param('id', ParseIntPipe) activityId: number,
+    @Param('photoId', ParseIntPipe) photoId: number,
+    @Req() req: any,
+  ) {
+    return this.activitiesService.removePhoto(req.user.id, activityId, photoId);
   }
 }

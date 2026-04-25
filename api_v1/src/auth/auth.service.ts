@@ -184,4 +184,52 @@ export class AuthService {
           : undefined,
     };
   }
+
+  async changePassword(
+    userId: number,
+    dto: { current_password: string; new_password: string },
+    ctx?: AuditContext,
+  ) {
+    // 1. Get current hash
+    const [secret] = await this.sql`
+    SELECT password_hash FROM user_secret WHERE id = ${userId}
+  `;
+    if (!secret) throw new UnauthorizedException('User not found');
+
+    // 2. Verify current password
+    const isValid = await argon2.verify(
+      secret.password_hash,
+      dto.current_password,
+    );
+    if (!isValid) {
+      await this.log({
+        userId,
+        username: null,
+        action: 'auth.login_failure', // reuse — it's a failed credential check
+        targetTable: 'user_secret',
+        targetId: userId,
+        outcome: 'failure',
+        ctx,
+      });
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // 3. Hash and update
+    const newHash = await argon2.hash(dto.new_password);
+    await this.sql`
+    UPDATE user_secret SET password_hash = ${newHash} WHERE id = ${userId}
+  `;
+
+    await this.log({
+      userId,
+      username: null,
+      action: 'auth.password_change',
+      targetTable: 'user_secret',
+      targetId: userId,
+      outcome: 'success',
+      ctx,
+    });
+
+    return { message: 'Password updated successfully' };
+  }
 }
