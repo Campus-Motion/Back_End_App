@@ -35,6 +35,7 @@ services:
       API_DB_URL: ${API_DB_URL}
       AUTH_DB_URL: ${AUTH_DB_URL}
       ADMIN_DB_URL: ${ADMIN_DB_URL}
+      AUDIT_DB_URL: ${AUDIT_DB_URL}
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
     networks:
