@@ -142,6 +142,7 @@ CREATE TABLE events (
     user_id           INTEGER,
     start_location_id INTEGER,
     end_location_id   INTEGER,
+    strava_url        VARCHAR,
     start_time        TIMESTAMP      NOT NULL,
     end_time          TIMESTAMP,
     distance_m        NUMERIC(10,2),
@@ -608,11 +609,11 @@ INSERT INTO activities (id, title, type, user_id, is_public) VALUES
     (2, 'Trail Guidelines', 'hike', 2, TRUE),
     (3, 'Hello all!',       'walk', 4, FALSE);
 
-INSERT INTO events (id, title, user_id, start_time) OVERRIDING SYSTEM VALUE VALUES
-    (1, 'Spring 5K',    1, NOW()),
-    (2, 'Campus Hike',  2, NOW()),
-    (3, 'Evening Walk', 3, NOW()),
-    (4, 'Trail Blazer', 4, NOW());
+INSERT INTO events (id, title, user_id, start_time, strava_url) OVERRIDING SYSTEM VALUE VALUES
+    (1, 'Spring 5K',    1, NOW(), 'test.strava.com/activities/12345'),
+    (2, 'Campus Hike',  2, NOW(), 'test.strava.com/activities/67890'),
+    (3, 'Evening Walk', 3, NOW(), NULL),
+    (4, 'Trail Blazer', 4, NOW(), NULL);
 
 INSERT INTO news (id, title, body, author_id, is_published, published_at) VALUES
     (1, 'Welcome to Campus Motion!', 'We are excited to launch the new Campus Motion platform.', 1, TRUE,  NOW()),

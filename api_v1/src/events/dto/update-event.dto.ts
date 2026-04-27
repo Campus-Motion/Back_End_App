@@ -32,6 +32,10 @@ export class UpdateEventDto {
   distance_m?: number;
 
   @IsOptional()
+  @IsDateString()
+  strava_url?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   start_location_id?: number;

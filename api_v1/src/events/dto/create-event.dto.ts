@@ -25,6 +25,10 @@ export class CreateEventDto {
   end_time?: string;
 
   @IsOptional()
+  @IsDateString()
+  strava_url?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   distance_m?: number;

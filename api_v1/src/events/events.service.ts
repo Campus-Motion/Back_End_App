@@ -40,6 +40,7 @@ export class EventsService {
         e.start_location_id,
         e.end_location_id,
         e.start_time,
+        e.strava_url,
         e.end_time,
         e.distance_m,
         e.created_at,
@@ -87,6 +88,7 @@ export class EventsService {
         e.start_time,
         e.end_time,
         e.distance_m,
+        e.strava_url,
         e.created_at,
         COUNT(ep.user_id)::int AS participant_count
       FROM events e
@@ -125,6 +127,7 @@ export class EventsService {
         ${new Date(dto.start_time)},
         ${dto.end_time ? new Date(dto.end_time) : null},
         ${dto.distance_m ?? null},
+        ${dto.strava_url ?? null},
         ${dto.start_location_id ?? null},
         ${dto.end_location_id ?? null}
       )
@@ -156,6 +159,7 @@ export class EventsService {
         start_time        = COALESCE(${dto.start_time ? new Date(dto.start_time) : null}, start_time),
         end_time          = COALESCE(${dto.end_time ? new Date(dto.end_time) : null}, end_time),
         distance_m        = COALESCE(${dto.distance_m ?? null}, distance_m),
+        strava_url       = COALESCE(${dto.strava_url ?? null}, strava_url),
         start_location_id = COALESCE(${dto.start_location_id ?? null}, start_location_id),
         end_location_id   = COALESCE(${dto.end_location_id ?? null}, end_location_id)
       WHERE id = ${id}
