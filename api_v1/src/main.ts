@@ -32,7 +32,11 @@ async function bootstrap() {
 
   app.use(
     cors({
-      origin: ['http://localhost:5173', 'https://api.campusmotion.ch'],
+      origin: [
+        'http://localhost:5173',
+        'https://feed.campusmotion.ch',
+        'https://api.campusmotion.ch',
+      ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
