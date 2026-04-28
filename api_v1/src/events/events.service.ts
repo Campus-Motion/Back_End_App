@@ -119,7 +119,7 @@ export class EventsService {
       INSERT INTO events (
         title, body, user_id,
         start_time, end_time,
-        distance_m, start_location_id, end_location_id
+        distance_m, strava_url, start_location_id, end_location_id
       ) VALUES (
         ${dto.title},
         ${dto.body ?? null},

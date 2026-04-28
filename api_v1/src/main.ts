@@ -34,6 +34,8 @@ async function bootstrap() {
     cors({
       origin: [
         'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
         'https://feed.campusmotion.ch',
         'https://api.campusmotion.ch',
       ],
