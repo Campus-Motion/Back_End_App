@@ -6,6 +6,7 @@ import {
   IsInt,
   Min,
   MaxLength,
+  IsEnum,
 } from 'class-validator';
 
 export class UpdateEventDto {
@@ -17,6 +18,26 @@ export class UpdateEventDto {
   @IsOptional()
   @IsString()
   body?: string;
+
+  @IsOptional()
+  @IsEnum([
+    'run',
+    'walk',
+    'bike',
+    'hike',
+    'swim',
+    'triathlon',
+    'fitness_trail',
+    'climbing',
+    'volleyball',
+    'basketball',
+    'soccer',
+    'badminton',
+    'tennis',
+    'golf',
+    'other',
+  ])
+  type?: string;
 
   @IsOptional()
   @IsDateString()

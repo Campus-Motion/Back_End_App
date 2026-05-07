@@ -6,12 +6,32 @@ import {
   IsInt,
   Min,
   MaxLength,
+  IsEnum,
 } from 'class-validator';
 
 export class CreateEventDto {
   @IsString()
   @MaxLength(255)
   title!: string;
+
+  @IsEnum([
+    'run',
+    'walk',
+    'bike',
+    'hike',
+    'swim',
+    'triathlon',
+    'fitness_trail',
+    'climbing',
+    'volleyball',
+    'basketball',
+    'soccer',
+    'badminton',
+    'tennis',
+    'golf',
+    'other',
+  ])
+  type!: string;
 
   @IsOptional()
   @IsString()

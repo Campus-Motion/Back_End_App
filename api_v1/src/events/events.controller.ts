@@ -25,6 +25,8 @@ import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/file.interceptor';
 import { photoUploadConfig } from '../common/multer/multer.config';
+import { JoinAsGuestDto } from './dto/join-as-guest.dto';
+import { Throttle } from '@nestjs/throttler';
 
 // Shorthand helper for role metadata
 const Roles = (...roles: string[]) => SetMetadata('roles', roles);
@@ -35,12 +37,14 @@ export class EventsController {
 
   // ── GET /events ─────────────────────────────────── Public ──────────────────
   @Get()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   findAll(@Query() query: QueryEventDto) {
     return this.eventsService.findAll(query);
   }
 
   // ── GET /events/:id ─────────────────────────────── Public ──────────────────
   @Get(':id')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.eventsService.findOne(id);
   }
@@ -76,6 +80,7 @@ export class EventsController {
 
   // ── GET /events/:id/participants ──────────────────── Public ─────────────────
   @Get(':id/participants')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   findParticipants(
     @Param('id', ParseIntPipe) id: number,
     @Query() query: QueryParticipantsDto,
@@ -89,6 +94,29 @@ export class EventsController {
   @HttpCode(HttpStatus.CREATED)
   joinEvent(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.eventsService.joinEvent(id, req.user.id);
+  }
+
+  // ── POST /events/:id/guest_participants ──────────────── Public ─────────────
+
+  @Post(':id/guest_participants')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.CREATED)
+  addGuestParticipant(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: JoinAsGuestDto,
+  ) {
+    return this.eventsService.addGuestParticipant(id, dto);
+  }
+
+  // DELETE /events/:id/guest_participants?token=... ──────────────── Public (with token) ─────────────
+  @Delete(':id/guest_participants')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  removeGuestParticipant(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('token') token: string,
+  ) {
+    return this.eventsService.removeGuestParticipant(id, token);
   }
 
   // ── DELETE /events/:id/participants ───────────── Authenticated ──────────────

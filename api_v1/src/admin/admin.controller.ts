@@ -110,7 +110,10 @@ export class AdminController {
   @Get('audit')
   @Roles('admin')
   @HttpCode(HttpStatus.OK)
-  getAuditLog(@Query() query: QueryAuditDto) {
+  getAuditLog(
+    @Query()
+    query: QueryAuditDto,
+  ) {
     return this.adminService.getAuditLog(query);
   }
 }

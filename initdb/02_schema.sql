@@ -138,11 +138,12 @@ CREATE TABLE community_members (
 CREATE TABLE events (
     id                INTEGER        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     title             VARCHAR        NOT NULL,
-    body             TEXT,
+    body              TEXT,
     user_id           INTEGER,
     start_location_id INTEGER,
     end_location_id   INTEGER,
     strava_url        VARCHAR,
+    type              activity_type,
     start_time        TIMESTAMP      NOT NULL,
     end_time          TIMESTAMP,
     distance_m        NUMERIC(10,2),
@@ -355,6 +356,15 @@ CREATE TABLE user_preferences (
     updated_at          TIMESTAMP
 );
 
+CREATE TABLE event_guest_participants (
+    id           SERIAL PRIMARY KEY,
+    event_id     INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    display_name VARCHAR NOT NULL,
+    telegram     VARCHAR,
+    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+    token        UUID NOT NULL DEFAULT gen_random_uuid()
+);
+
 -- ─────────────────────────────────────────
 -- Triggers
 -- ─────────────────────────────────────────
@@ -409,14 +419,14 @@ CREATE INDEX idx_audit_log_outcome      ON audit_log (outcome);
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     locations, users, health_data, events, event_participants,
     activities, activity_waypoints, news, comments, likes,
-    user_follows, notifications, event_photos, activity_photos, user_preferences
+    user_follows, notifications, event_photos, activity_photos, user_preferences, event_guest_participants
 TO api_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO api_role;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     locations, users, events, event_participants,
     activities, activity_waypoints, news, comments, likes,
-    user_follows, notifications, event_photos, activity_photos
+    user_follows, notifications, event_photos, activity_photos, event_guest_participants
 TO admin_role;
 GRANT SELECT, INSERT ON audit_log TO admin_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO admin_role;

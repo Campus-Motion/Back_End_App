@@ -9,6 +9,7 @@ import type { Sql } from 'postgres';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { QueryEventDto, QueryParticipantsDto } from './dto/query-event.dto';
+import { JoinAsGuestDto } from './dto/join-as-guest.dto';
 
 @Injectable()
 export class EventsService {
@@ -41,6 +42,7 @@ export class EventsService {
         e.end_location_id,
         e.start_time,
         e.strava_url,
+        e.type,
         e.end_time,
         e.distance_m,
         e.created_at,
@@ -88,6 +90,7 @@ export class EventsService {
         e.start_time,
         e.end_time,
         e.distance_m,
+        e.type,
         e.strava_url,
         e.created_at,
         COUNT(ep.user_id)::int AS participant_count
@@ -118,7 +121,7 @@ export class EventsService {
     const [event] = await this.sql`
       INSERT INTO events (
         title, body, user_id,
-        start_time, end_time,
+        start_time, end_time, type,
         distance_m, strava_url, start_location_id, end_location_id
       ) VALUES (
         ${dto.title},
@@ -126,6 +129,7 @@ export class EventsService {
         ${userId},
         ${new Date(dto.start_time)},
         ${dto.end_time ? new Date(dto.end_time) : null},
+        ${dto.type},
         ${dto.distance_m ?? null},
         ${dto.strava_url ?? null},
         ${dto.start_location_id ?? null},
@@ -159,6 +163,7 @@ export class EventsService {
         start_time        = COALESCE(${dto.start_time ? new Date(dto.start_time) : null}, start_time),
         end_time          = COALESCE(${dto.end_time ? new Date(dto.end_time) : null}, end_time),
         distance_m        = COALESCE(${dto.distance_m ?? null}, distance_m),
+        type              = COALESCE(${dto.type ?? null}, type),
         strava_url       = COALESCE(${dto.strava_url ?? null}, strava_url),
         start_location_id = COALESCE(${dto.start_location_id ?? null}, start_location_id),
         end_location_id   = COALESCE(${dto.end_location_id ?? null}, end_location_id)
@@ -217,6 +222,37 @@ export class EventsService {
     return { message: 'Left event successfully' };
   }
 
+  // ─── POST /events/:id/guest_participants ──────────────────────────────────────
+
+  async addGuestParticipant(eventId: number, dto: JoinAsGuestDto) {
+    const [event] = await this.sql`SELECT id FROM events WHERE id = ${eventId}`;
+    if (!event) throw new NotFoundException(`Event #${eventId} not found`);
+
+    const token = await this.sql`
+      INSERT INTO event_guest_participants (event_id, display_name, telegram)
+      VALUES (${eventId}, ${dto.display_name}, ${dto.telegram ?? null})
+      RETURNING token
+    `;
+    return token;
+  }
+
+  // ─── DELETE /events/:id/guest_participants ──────────────────────────────────────
+
+  async removeGuestParticipant(eventId: number, token: string) {
+    const [event] = await this.sql`SELECT id FROM events WHERE id = ${eventId}`;
+    if (!event) throw new NotFoundException(`Event #${eventId} not found`);
+
+    const result = await this.sql`
+      DELETE FROM event_guest_participants
+      WHERE event_id = ${eventId} AND token = ${token}
+    `;
+
+    if (result.count === 0) {
+      throw new NotFoundException('Guest participant not found');
+    }
+    return { message: 'Guest participant removed successfully' };
+  }
+
   // ─── GET /events/:id/participants ─────────────────────────────────────────────
 
   async findParticipants(eventId: number, query: QueryParticipantsDto) {
@@ -235,16 +271,31 @@ export class EventsService {
       LIMIT ${limit} OFFSET ${offset}
     `;
 
+    const guest_participants = await this.sql`
+      SELECT display_name, telegram, created_at
+      FROM event_guest_participants
+      WHERE event_id = ${eventId}
+      ORDER BY created_at ASC
+    `;
+
     const [{ total }] = await this.sql`
       SELECT COUNT(*)::int AS total
-      FROM event_participants
+      FROM event_participants 
       WHERE event_id = ${eventId}
     `;
 
+    const guest_total = await this.sql`
+      SELECT COUNT(*)::int AS total
+      FROM event_guest_participants
+      WHERE event_id = ${eventId}
+    `;
+
+    const totalCount = total + guest_total[0].total;
+
     return {
-      data: participants,
+      data: [...participants, ...guest_participants],
       meta: {
-        total,
+        total: totalCount,
         limit,
         offset,
         has_more: offset + participants.length < total,

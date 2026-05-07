@@ -63,14 +63,7 @@ export class ActivitiesController {
   // POST /activities
   @Post()
   create(@Request() req, @Body() dto: CreateActivityDto) {
-    return this.activitiesService.create(
-      req.user.id,
-      dto.title,
-      dto.type,
-      dto.body,
-      dto.is_public ?? false,
-      dto.event_id,
-    );
+    return this.activitiesService.create(dto, req.user.id);
   }
 
   // PUT /activities/:id

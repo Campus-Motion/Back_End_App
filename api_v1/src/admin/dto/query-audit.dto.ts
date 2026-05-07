@@ -14,6 +14,7 @@ export class QueryAuditDto {
   @Min(0)
   offset?: number;
 
+
   @IsOptional()
   @IsISO8601()
   after?: string;

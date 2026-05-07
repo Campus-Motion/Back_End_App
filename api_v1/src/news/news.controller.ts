@@ -29,6 +29,7 @@ import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { join } from 'path';
 import { photoUploadConfig } from '../common/multer/multer.config';
+import { Throttle } from '@nestjs/throttler';
 
 const Roles = (...roles: string[]) => SetMetadata('roles', roles);
 
@@ -41,11 +42,21 @@ export class NewsController {
   constructor(private readonly newsService: NewsService) {}
 
   @Get()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   findAll(@Query() query: QueryNewsDto) {
-    return this.newsService.findAll(query);
+    return this.newsService.findAll(query, false);
+  }
+
+  // Admin/moderator: returns all news including drafts
+  @Get('admin')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('admin', 'moderator')
+  findAllAdmin(@Query() query: QueryNewsDto) {
+    return this.newsService.findAll(query, true);
   }
 
   @Get(':id')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.newsService.findOne(id);
   }

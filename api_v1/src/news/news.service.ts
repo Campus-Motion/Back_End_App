@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Sql } from 'postgres';
+import type { Sql, TransactionSql } from 'postgres';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
 import { QueryNewsDto } from './dto/query-news.dto';
@@ -16,33 +16,27 @@ export class NewsService {
     @Inject('ADMIN_DB') private readonly adminDb: Sql,
   ) {}
 
-  private async setRlsContext(db: Sql, userId: number): Promise<void> {
-    await db`SELECT set_config('app.current_user_id', ${String(userId)}, true)`;
-  }
-
   private dbForUser(user: { id: number; role: string }): Sql {
     return user.role === 'admin' ? this.adminDb : this.apiDb;
   }
 
-  async findAll(query: QueryNewsDto) {
+  async findAll(query: QueryNewsDto, includeDrafts = false) {
     const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
     const cursor = query.cursor ?? null;
     const before = query.before ? new Date(query.before) : null;
 
-    const rows = await this.apiDb`
+    const db = includeDrafts ? this.adminDb : this.apiDb;
+    const publishedFilter = includeDrafts
+      ? this.apiDb`TRUE`
+      : this.apiDb`n.is_published = TRUE`;
+
+    const rows = await db`
       SELECT
-        n.id,
-        n.title,
-        n.body,
-        n.photo_url,
-        n.author_id,
-        n.is_published,
-        n.published_at,
-        n.created_at,
-        n.updated_at
+        n.id, n.title, n.body, n.photo_url, n.author_id,
+        n.is_published, n.published_at, n.created_at, n.updated_at
       FROM news n
-      WHERE n.is_published = TRUE
+      WHERE ${publishedFilter}
         ${cursor ? this.apiDb`AND n.id < ${cursor}` : this.apiDb``}
         ${before ? this.apiDb`AND COALESCE(n.published_at, n.created_at) < ${before}` : this.apiDb``}
       ORDER BY COALESCE(n.published_at, n.created_at) DESC, n.id DESC
@@ -52,7 +46,7 @@ export class NewsService {
     const [{ total }] = await this.apiDb`
       SELECT COUNT(*)::int AS total
       FROM news n
-      WHERE n.is_published = TRUE
+      WHERE ${publishedFilter}
         ${cursor ? this.apiDb`AND n.id < ${cursor}` : this.apiDb``}
         ${before ? this.apiDb`AND COALESCE(n.published_at, n.created_at) < ${before}` : this.apiDb``}
     `;
@@ -72,15 +66,8 @@ export class NewsService {
   async findOne(id: number) {
     const [article] = await this.apiDb`
       SELECT
-        n.id,
-        n.title,
-        n.body,
-        n.photo_url,
-        n.author_id,
-        n.is_published,
-        n.published_at,
-        n.created_at,
-        n.updated_at,
+        n.id, n.title, n.body, n.photo_url, n.author_id,
+        n.is_published, n.published_at, n.created_at, n.updated_at,
         u.username AS author_username,
         u.photo_url AS author_photo_url
       FROM news n
@@ -91,14 +78,8 @@ export class NewsService {
     if (!article) throw new NotFoundException(`News #${id} not found`);
 
     const comments = await this.apiDb`
-      SELECT
-        c.id,
-        c.body,
-        c.author_id,
-        c.created_at,
-        c.updated_at,
-        u.username,
-        u.photo_url
+      SELECT c.id, c.body, c.author_id, c.created_at, c.updated_at,
+             u.username, u.photo_url
       FROM comments c
       JOIN users u ON u.id = c.author_id
       WHERE c.news_id = ${id}
@@ -111,62 +92,18 @@ export class NewsService {
   async create(dto: CreateNewsDto, user: { id: number; role: string }) {
     const db = this.dbForUser(user);
 
-    if (user.role !== 'admin') {
-      await this.setRlsContext(db, user.id);
-    }
-
     const [created] = await db`
-      INSERT INTO news (title, body, photo_url, author_id, is_published)
-      VALUES (
-        ${dto.title},
-        ${dto.body},
-        ${dto.photo_url ?? null},
-        ${user.id},
-        ${dto.is_published ?? false}
+      WITH set_ctx AS (
+        SELECT set_config('app.current_user_id', ${String(user.id)}, true)
       )
+      INSERT INTO news (title, body, photo_url, author_id, is_published)
+      SELECT ${dto.title}, ${dto.body}, ${dto.photo_url ?? null},
+             ${user.id}, ${dto.is_published ?? false}
+      FROM set_ctx
       RETURNING *
     `;
 
     return created;
-  }
-
-  async update(
-    id: number,
-    dto: UpdateNewsDto,
-    user: { id: number; role: string },
-  ) {
-    const db = this.dbForUser(user);
-
-    const [existing] = await db`
-      SELECT *
-      FROM news
-      WHERE id = ${id}
-    `;
-
-    if (!existing) throw new NotFoundException(`News #${id} not found`);
-
-    const isAdmin = user.role === 'admin';
-    if (!isAdmin && existing.author_id !== user.id) {
-      throw new ForbiddenException('You can only edit news you authored');
-    }
-
-    if (!isAdmin) {
-      await this.setRlsContext(db, user.id);
-    }
-
-    const [updated] = await db`
-      UPDATE news
-      SET
-        title        = COALESCE(${dto.title ?? null}, title),
-        body         = COALESCE(${dto.body ?? null}, body),
-        photo_url    = COALESCE(${dto.photo_url ?? null}, photo_url),
-        is_published = COALESCE(${dto.is_published ?? null}, is_published),
-        updated_at   = NOW()
-      WHERE id = ${id}
-      RETURNING *
-    `;
-
-    return updated;
   }
 
   async remove(id: number, user: { id: number; role: string }) {
@@ -181,34 +118,95 @@ export class NewsService {
     return { message: 'News article deleted' };
   }
 
+  async update(
+    id: number,
+    dto: UpdateNewsDto,
+    user: { id: number; role: string },
+  ) {
+    const [existing] = await this.adminDb`SELECT * FROM news WHERE id = ${id}`;
+    if (!existing) throw new NotFoundException(`News #${id} not found`);
+
+    if (user.role !== 'admin' && existing.author_id !== user.id) {
+      throw new ForbiddenException('You can only edit news you authored');
+    }
+
+    if (user.role === 'admin') {
+      const [updated] = await this.adminDb`
+      UPDATE news
+      SET
+        title        = COALESCE(${dto.title ?? null}, title),
+        body         = COALESCE(${dto.body ?? null}, body),
+        photo_url    = COALESCE(${dto.photo_url ?? null}, photo_url),
+        is_published = COALESCE(${dto.is_published ?? null}, is_published),
+        updated_at   = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+      return updated;
+    }
+
+    const updated = await this.apiDb.begin(async (tx: TransactionSql) => {
+      await (tx as unknown as Sql)`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
+
+      const rows = await (tx as unknown as Sql)`
+    UPDATE news
+    SET
+      title        = COALESCE(${dto.title ?? null}, title),
+      body         = COALESCE(${dto.body ?? null}, body),
+      photo_url    = COALESCE(${dto.photo_url ?? null}, photo_url),
+      is_published = COALESCE(${dto.is_published ?? null}, is_published),
+      updated_at   = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+
+      return rows[0];
+    });
+
+    if (!updated)
+      throw new NotFoundException(`News #${id} not found or not editable`);
+    return updated;
+  }
+
   async updatePhoto(
     id: number,
     photoUrl: string,
     user: { id: number; role: string },
   ) {
-    const db = this.dbForUser(user);
-
-    const [existing] = await db`SELECT * FROM news WHERE id = ${id}`;
+    const [existing] = await this.adminDb`SELECT * FROM news WHERE id = ${id}`;
     if (!existing) throw new NotFoundException(`News #${id} not found`);
 
-    const isAdmin = user.role === 'admin';
-    if (!isAdmin && existing.author_id !== user.id) {
+    if (user.role !== 'admin' && existing.author_id !== user.id) {
       throw new ForbiddenException(
         'You can only update photos on news you authored',
       );
     }
 
-    if (!isAdmin) {
-      await this.setRlsContext(db, user.id);
+    if (user.role === 'admin') {
+      const [updated] = await this.adminDb`
+      UPDATE news
+      SET photo_url = ${photoUrl}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING photo_url
+    `;
+      return updated;
     }
 
-    const [updated] = await db`
+    const updated = await this.apiDb.begin(async (tx: TransactionSql) => {
+      await (tx as unknown as Sql)`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
+
+      const rows = await (tx as unknown as Sql)`
       UPDATE news
       SET photo_url = ${photoUrl}, updated_at = NOW()
       WHERE id = ${id}
       RETURNING photo_url
     `;
 
+      return rows[0];
+    });
+
+    if (!updated)
+      throw new NotFoundException(`News #${id} not found or not editable`);
     return updated;
   }
 }

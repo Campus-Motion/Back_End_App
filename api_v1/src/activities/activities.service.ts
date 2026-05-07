@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import postgres from 'postgres';
+import { CreateActivityDto } from './dto/create-activities.dto';
 
 @Injectable()
 export class ActivitiesService {
@@ -64,23 +65,18 @@ export class ActivitiesService {
     });
   }
 
-  async create(
-    userId: number,
-    title: string,
-    type: string,
-    body?: string,
-    isPublic: boolean = false,
-    eventId?: number,
-  ) {
-    return this.sql.begin(async (sql: any) => {
-      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
-      const [activity] = await sql`
+  async create(dto: CreateActivityDto, userId: number) {
+    {
+      return this.sql.begin(async (sql: any) => {
+        await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+        const [activity] = await sql`
         INSERT INTO activities (title, type, user_id, body, is_public, event_id)
-        VALUES (${title}, ${type}, ${userId}, ${body ?? null}, ${isPublic}, ${eventId ?? null})
+        VALUES (${dto.title}, ${dto.type}, ${userId}, ${dto.body ?? null}, ${dto.is_public}, ${dto.event_id ?? null})
         RETURNING *
       `;
-      return activity;
-    });
+        return activity;
+      });
+    }
   }
 
   async update(
