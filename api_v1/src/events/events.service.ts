@@ -233,7 +233,7 @@ export class EventsService {
       VALUES (${eventId}, ${dto.display_name}, ${dto.telegram ?? null})
       RETURNING token
     `;
-    return token;
+    return token[0];
   }
 
   // ─── DELETE /events/:id/guest_participants ──────────────────────────────────────
