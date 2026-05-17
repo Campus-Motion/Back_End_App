@@ -7,6 +7,7 @@ import {
   Min,
   MaxLength,
   IsEnum,
+  IsUrl,
 } from 'class-validator';
 
 export class CreateEventDto {
@@ -45,7 +46,9 @@ export class CreateEventDto {
   end_time?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @MaxLength(255)
+  @IsUrl()
   strava_url?: string;
 
   @IsOptional()
