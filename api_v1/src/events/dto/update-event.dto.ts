@@ -7,6 +7,7 @@ import {
   Min,
   MaxLength,
   IsEnum,
+  IsUrl,
 } from 'class-validator';
 
 export class UpdateEventDto {
@@ -53,7 +54,9 @@ export class UpdateEventDto {
   distance_m?: number;
 
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @MaxLength(255)
+  @IsUrl()
   strava_url?: string;
 
   @IsOptional()

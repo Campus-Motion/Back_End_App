@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { AdminModule } from './admin/admin.module';
 import { APP_FILTER } from '@nestjs/core';
 import { ForbiddenExceptionFilter } from './common/filters/forbidden_exception.filter';
+import { LocationModule } from './location/location.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ForbiddenExceptionFilter } from './common/filters/forbidden_exception.f
     UsersModule,
     EventsModule,
     NewsModule,
+    LocationModule,
     ActivitiesModule,
     AdminModule,
     ConfigModule.forRoot({ isGlobal: true }),

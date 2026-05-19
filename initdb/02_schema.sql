@@ -67,7 +67,9 @@ CREATE TABLE locations (
     id        SERIAL         PRIMARY KEY,
     latitude  NUMERIC(9,6)   NOT NULL,
     longitude NUMERIC(9,6)   NOT NULL,
-    label     VARCHAR
+    label     VARCHAR       NOT NULL, 
+    description TEXT,
+    created_at TIMESTAMP     NOT NULL DEFAULT NOW()
 );
 
 -- 2. users
@@ -637,3 +639,4 @@ SELECT setval('activities_id_seq', (SELECT MAX(id) FROM activities));
 SELECT setval('events_id_seq', (SELECT MAX(id) FROM events));
 SELECT setval('health_data_id_seq', (SELECT MAX(id) FROM health_data));
 SELECT setval('news_id_seq', (SELECT MAX(id) FROM news));
+SELECT setval('locations_id_seq', (SELECT MAX(id) FROM locations));
