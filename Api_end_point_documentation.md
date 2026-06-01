@@ -163,8 +163,11 @@ Get the currently authenticated user's profile.
   "username": "flavien",
   "email": "flavien@epfl.ch",
   "photo_url": "/uploads/profiles/a3f8c2d1-9b4e-4f2a-b1c2.jpg",
+  "section": "IC",
   "role": "user",
-  "created_at": "2026-03-26T10:00:00Z"
+  "created_at": "2026-03-26T10:00:00Z",
+  "updated_at": "2026-03-26T10:00:00Z",
+  "last_login_at": "2026-03-26T10:00:00Z"
 }
 ```
 

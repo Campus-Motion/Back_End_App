@@ -10,6 +10,8 @@ import { AdminModule } from './admin/admin.module';
 import { APP_FILTER } from '@nestjs/core';
 import { ForbiddenExceptionFilter } from './common/filters/forbidden_exception.filter';
 import { LocationModule } from './location/location.module';
+import { CommentsModule } from './comments/comments.module';
+import { LikesModule } from './likes/likes.module';
 
 @Module({
   imports: [
@@ -19,7 +21,9 @@ import { LocationModule } from './location/location.module';
     EventsModule,
     NewsModule,
     LocationModule,
+    LikesModule,
     ActivitiesModule,
+    CommentsModule,
     AdminModule,
     ConfigModule.forRoot({ isGlobal: true }),
   ],

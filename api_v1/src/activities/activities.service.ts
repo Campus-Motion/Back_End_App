@@ -71,7 +71,10 @@ export class ActivitiesService {
         await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
         const [activity] = await sql`
         INSERT INTO activities (title, type, user_id, body, is_public, event_id)
-        VALUES (${dto.title}, ${dto.type}, ${userId}, ${dto.body ?? null}, ${dto.is_public}, ${dto.event_id ?? null})
+        VALUES (${dto.title},
+         ${dto.type},
+        ${userId},
+        ${dto.body ?? null}, ${dto.is_public}, ${dto.event_id ?? null})
         RETURNING *
       `;
         return activity;

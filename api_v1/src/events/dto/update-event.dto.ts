@@ -68,4 +68,8 @@ export class UpdateEventDto {
   @IsInt()
   @Min(1)
   end_location_id?: number;
+
+  @IsOptional()
+  @IsEnum(['social', 'workout', 'competition', 'casual', 'adventure'])
+  event_format?: string;
 }

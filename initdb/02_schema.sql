@@ -19,6 +19,7 @@ CREATE TYPE activity_type AS ENUM (
     'hike',
     'swim',
     'triathlon',
+    'street_workout',
     'fitness_trail',
     'climbing',
     'volleyball',
@@ -47,6 +48,13 @@ CREATE TYPE audit_action AS ENUM (
   'health.create',
   'health.update',
   'health.delete_requested'
+);
+CREATE TYPE event_format AS ENUM ( 
+    'social',
+    'workout',
+    'competition', 
+    'casual',
+    'adventure'
 );
 CREATE TYPE training_intensity AS ENUM ('light', 'moderate', 'intense', 'extreme');
 CREATE TYPE fitness_goal       AS ENUM ('lose_weight', 'build_muscle', 'improve_endurance', 'stay_active', 'compete', 'have_fun');
@@ -146,6 +154,7 @@ CREATE TABLE events (
     end_location_id   INTEGER,
     strava_url        VARCHAR,
     type              activity_type,
+    event_format      event_format,
     start_time        TIMESTAMP      NOT NULL,
     end_time          TIMESTAMP,
     distance_m        NUMERIC(10,2),
@@ -446,21 +455,27 @@ GRANT USAGE, SELECT ON SEQUENCE audit_log_id_seq TO audit_writer;
 -- Row-Level Security (RLS)
 -- ─────────────────────────────────────────
 
--- health_data: strictly private (own row only)
+-- health_data: strictly private (own row only) --------------------------------
 ALTER TABLE health_data ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY health_data_isolation ON health_data
     FOR ALL TO api_role
-    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer)
+    WITH CHECK(user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
 
--- user_preferences: strictly private (own row only)
+
+
+-- user_preferences: strictly private (own row only) --------------------------------
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY user_preferences_isolation ON user_preferences
     FOR ALL TO api_role
-    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
+    USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer)
+    WITH CHECK(user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
 
--- activities: own rows + any public row
+
+
+-- activities: own rows + any public row -----------------------------------------
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: your own rows + any public row
@@ -489,7 +504,9 @@ CREATE POLICY activities_delete ON activities
     FOR DELETE TO api_role
     USING (user_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
 
--- notifications: strictly private (own notifications only)
+
+
+-- notifications: strictly private (own notifications only)-----------------------------
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY notifications_isolation ON notifications
@@ -516,7 +533,9 @@ CREATE POLICY news_update ON news FOR UPDATE TO api_role
 CREATE POLICY news_delete ON news FOR DELETE TO api_role
     USING (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
 
--- comments: can see a comment only if you can see its parent (public activity or yours, or any news)
+
+
+-- comments: can see a comment only if you can see its parent (public activity or yours, or any news)---------------------
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
 -- Can see a comment only if you can see its parent (public activity or yours, or any news)
@@ -540,7 +559,9 @@ CREATE POLICY comments_update ON comments FOR UPDATE TO api_role
 CREATE POLICY comments_delete ON comments FOR DELETE TO api_role
     USING (author_id = NULLIF(current_setting('app.current_user_id', true), '')::integer);
 
--- activity_photos: can see photos only if you can see the parent activity (public or yours)
+
+
+-- activity_photos: can see photos only if you can see the parent activity (public or yours)-----------------
 ALTER TABLE activity_photos ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY activity_photos_select ON activity_photos FOR SELECT TO api_role
@@ -568,7 +589,9 @@ CREATE POLICY activity_photos_delete ON activity_photos FOR DELETE TO api_role
         )
     );
 
--- event_photos: can see photos only if you can see the parent event (yours)
+
+
+-- event_photos: can see photos only if you can see the parent event (yours)------------------
 ALTER TABLE event_photos ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY event_photos_select ON event_photos FOR SELECT TO api_role USING (TRUE);

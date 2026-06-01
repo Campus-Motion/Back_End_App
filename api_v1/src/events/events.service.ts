@@ -44,6 +44,7 @@ export class EventsService {
         e.strava_url,
         e.type,
         e.end_time,
+        e.event_format,
         e.distance_m,
         e.created_at,
         COUNT(ep.user_id)::int AS participant_count
@@ -91,6 +92,7 @@ export class EventsService {
         e.end_time,
         e.distance_m,
         e.type,
+        e.event_format,
         e.strava_url,
         e.created_at,
         COUNT(ep.user_id)::int AS participant_count
@@ -122,7 +124,7 @@ export class EventsService {
       INSERT INTO events (
         title, body, user_id,
         start_time, end_time, type,
-        distance_m, strava_url, start_location_id, end_location_id
+        event_format, distance_m, strava_url, start_location_id, end_location_id
       ) VALUES (
         ${dto.title},
         ${dto.body ?? null},
@@ -130,6 +132,7 @@ export class EventsService {
         ${new Date(dto.start_time)},
         ${dto.end_time ? new Date(dto.end_time) : null},
         ${dto.type},
+        ${dto.event_format ?? null},
         ${dto.distance_m ?? null},
         ${dto.strava_url ?? null},
         ${dto.start_location_id ?? null},
@@ -164,6 +167,7 @@ export class EventsService {
         end_time          = COALESCE(${dto.end_time ? new Date(dto.end_time) : null}, end_time),
         distance_m        = COALESCE(${dto.distance_m ?? null}, distance_m),
         type              = COALESCE(${dto.type ?? null}, type),
+        event_format      = COALESCE(${dto.event_format ?? null}, event_format),
         strava_url       = COALESCE(${dto.strava_url ?? null}, strava_url),
         start_location_id = COALESCE(${dto.start_location_id ?? null}, start_location_id),
         end_location_id   = COALESCE(${dto.end_location_id ?? null}, end_location_id)

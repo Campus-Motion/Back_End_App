@@ -176,12 +176,9 @@ export class AuthService {
     // 5. Sign and return JWT
     const payload = { sub: user.id, username: user.username, role: user.role };
     return {
-      access_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      access_token: 
+        user.role === 'admin' ? this.jwtService.sign(payload, { expiresIn: '2h' }) : this.jwtService.sign(payload, { expiresIn: '7d' }),
       role: user.role,
-      admin_token:
-        user.role === 'admin'
-          ? this.jwtService.sign(payload, { expiresIn: '15m' })
-          : undefined,
     };
   }
 
