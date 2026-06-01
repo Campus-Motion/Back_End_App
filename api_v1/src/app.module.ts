@@ -12,6 +12,8 @@ import { ForbiddenExceptionFilter } from './common/filters/forbidden_exception.f
 import { LocationModule } from './location/location.module';
 import { CommentsModule } from './comments/comments.module';
 import { LikesModule } from './likes/likes.module';
+import { HealthModule } from './health/health.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -23,7 +25,9 @@ import { LikesModule } from './likes/likes.module';
     LocationModule,
     LikesModule,
     ActivitiesModule,
+    HealthModule,
     CommentsModule,
+    NotificationsModule,
     AdminModule,
     ConfigModule.forRoot({ isGlobal: true }),
   ],

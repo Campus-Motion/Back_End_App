@@ -66,6 +66,7 @@ export class ActivitiesService {
   }
 
   async create(dto: CreateActivityDto, userId: number) {
+    console.log('Creating activity with DTO:', dto, 'for user ID:', userId);
     {
       return this.sql.begin(async (sql: any) => {
         await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
@@ -74,7 +75,7 @@ export class ActivitiesService {
         VALUES (${dto.title},
          ${dto.type},
         ${userId},
-        ${dto.body ?? null}, ${dto.is_public}, ${dto.event_id ?? null})
+        ${dto.body ?? null}, ${dto.is_public ?? false}, ${dto.event_id ?? null})
         RETURNING *
       `;
         return activity;

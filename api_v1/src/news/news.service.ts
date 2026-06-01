@@ -130,6 +130,8 @@ export class NewsService {
       throw new ForbiddenException('You can only edit news you authored');
     }
 
+    console.log('update news', { id, dto, user });
+
     if (user.role === 'admin') {
       const [updated] = await this.adminDb`
       UPDATE news
@@ -143,12 +145,11 @@ export class NewsService {
       RETURNING *
     `;
       return updated;
-    }
+    } else {
+      const updated = await this.apiDb.begin(async (tx: TransactionSql) => {
+        await (tx as unknown as Sql)`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
 
-    const updated = await this.apiDb.begin(async (tx: TransactionSql) => {
-      await (tx as unknown as Sql)`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
-
-      const rows = await (tx as unknown as Sql)`
+        const rows = await (tx as unknown as Sql)`
     UPDATE news
     SET
       title        = COALESCE(${dto.title ?? null}, title),
@@ -160,12 +161,13 @@ export class NewsService {
     RETURNING *
   `;
 
-      return rows[0];
-    });
+        return rows[0];
+      });
 
-    if (!updated)
-      throw new NotFoundException(`News #${id} not found or not editable`);
-    return updated;
+      if (!updated)
+        throw new NotFoundException(`News #${id} not found or not editable`);
+      return updated;
+    }
   }
 
   async updatePhoto(

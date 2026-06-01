@@ -87,17 +87,24 @@ export class AuthService {
     `;
     if (existing) throw new ConflictException('Email already in use');
 
-    // 2. Hash the password with Argon2
+    // 2. Check if username already exists
+    const [existingUsername] = await this.sql`
+      SELECT id FROM users WHERE username = ${username}
+    `;
+    if (existingUsername)
+      throw new ConflictException('Username already in use');
+
+    // 3. Hash the password with Argon2
     const hash = await argon2.hash(password);
 
-    // 3. Insert into users
+    // 4. Insert into users
     const [user] = await this.sql`
       INSERT INTO users (username, email)
       VALUES (${username}, ${email})
       RETURNING id, username, email
     `;
 
-    // 4. Insert the hash into user_secret
+    // 5. Insert the hash into user_secret
     await this.sql`
       INSERT INTO user_secret (id, password_hash)
       VALUES (${user.id}, ${hash})
@@ -176,8 +183,10 @@ export class AuthService {
     // 5. Sign and return JWT
     const payload = { sub: user.id, username: user.username, role: user.role };
     return {
-      access_token: 
-        user.role === 'admin' ? this.jwtService.sign(payload, { expiresIn: '2h' }) : this.jwtService.sign(payload, { expiresIn: '7d' }),
+      access_token:
+        user.role === 'admin'
+          ? this.jwtService.sign(payload, { expiresIn: '2h' })
+          : this.jwtService.sign(payload, { expiresIn: '7d' }),
       role: user.role,
     };
   }
