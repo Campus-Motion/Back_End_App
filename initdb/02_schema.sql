@@ -434,6 +434,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
 TO api_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO api_role;
 
+-- admin_role: full access to everything, excluding user_secret and health_data, but INCLUDING audit_log for oversight
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     locations, users, events, event_participants,
     activities, activity_waypoints, news, comments, likes,

@@ -142,60 +142,71 @@ export class UsersService {
   // ─── PREFERENCES ─────────────────────────────────────────────────────────────
 
   async getPreferences(userId: number) {
-    const [prefs] = await this.apiDb`
-    SELECT * FROM user_preferences WHERE user_id = ${userId}
-  `;
-    // Return empty defaults if the user hasn't set preferences yet
-    return (
-      prefs ?? {
-        user_id: userId,
-        preferred_sports: [],
-        intensity: null,
-        goal: null,
-        level: null,
-        open_to_groups: true,
-        open_to_new_sports: true,
-        max_distance_km: null,
-        updated_at: null,
-      }
-    );
+    return this.apiDb.begin(async (tx: any) => {
+      await tx`SELECT set_config('app.current_user_id', ${String(userId)}, true)`;
+
+      const rows = await tx`
+      SELECT *
+      FROM user_preferences
+      WHERE user_id = ${userId}
+    `;
+
+      return (
+        rows[0] ?? {
+          user_id: userId,
+          preferred_sports: [],
+          intensity: null,
+          goal: null,
+          level: null,
+          open_to_groups: true,
+          open_to_new_sports: true,
+          max_distance_km: null,
+          updated_at: null,
+        }
+      );
+    });
   }
 
   async upsertPreferences(userId: number, dto: UpdatePreferencesDto) {
-    const [prefs] = await this.apiDb`
-    INSERT INTO user_preferences (
-      user_id,
-      preferred_sports,
-      intensity,
-      goal,
-      level,
-      open_to_groups,
-      open_to_new_sports,
-      max_distance_km,
-      updated_at
-    ) VALUES (
-      ${userId},
-      ${dto.preferred_sports ?? []},
-      ${dto.intensity ?? null},
-      ${dto.goal ?? null},
-      ${dto.level ?? null},
-      ${dto.open_to_groups ?? true},
-      ${dto.open_to_new_sports ?? true},
-      ${dto.max_distance_km ?? null},
-      NOW()
-    )
-    ON CONFLICT (user_id) DO UPDATE SET
-      preferred_sports   = EXCLUDED.preferred_sports,
-      intensity          = EXCLUDED.intensity,
-      goal               = EXCLUDED.goal,
-      level              = EXCLUDED.level,
-      open_to_groups     = EXCLUDED.open_to_groups,
-      open_to_new_sports = EXCLUDED.open_to_new_sports,
-      max_distance_km    = EXCLUDED.max_distance_km,
-      updated_at         = NOW()
-    RETURNING *
-  `;
-    return prefs;
+    return this.apiDb.begin(async (tx: any) => {
+      await tx`SELECT set_config('app.current_user_id', ${String(userId)}, true)`;
+
+      const rows = await tx`
+      INSERT INTO user_preferences (
+        user_id,
+        preferred_sports,
+        intensity,
+        goal,
+        level,
+        open_to_groups,
+        open_to_new_sports,
+        max_distance_km,
+        updated_at
+      ) VALUES (
+        ${userId},
+        ${dto.preferred_sports ?? []},
+        ${dto.intensity ?? null},
+        ${dto.goal ?? null},
+        ${dto.level ?? null},
+        ${dto.open_to_groups ?? true},
+        ${dto.open_to_new_sports ?? true},
+        ${dto.max_distance_km ?? null},
+        NOW()
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        preferred_sports = EXCLUDED.preferred_sports,
+        intensity = EXCLUDED.intensity,
+        goal = EXCLUDED.goal,
+        level = EXCLUDED.level,
+        open_to_groups = EXCLUDED.open_to_groups,
+        open_to_new_sports = EXCLUDED.open_to_new_sports,
+        max_distance_km = EXCLUDED.max_distance_km,
+        updated_at = NOW()
+      RETURNING *
+    `;
+
+      return rows[0];
+    });
   }
 
   // ─── Public profiles ───────────────────────────────────────────────────────
