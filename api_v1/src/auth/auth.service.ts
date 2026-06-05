@@ -8,6 +8,14 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import postgres from 'postgres';
 
+const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
+  type: argon2.argon2id,
+  memoryCost: 65536, // 64 MiB in KiB
+  timeCost: 3,
+  parallelism: 1,
+  hashLength: 32,
+};
+
 // Shared type — move to src/common/audit.types.ts if used across modules
 export interface AuditContext {
   ip?: string;
@@ -95,7 +103,7 @@ export class AuthService {
       throw new ConflictException('Username already in use');
 
     // 3. Hash the password with Argon2
-    const hash = await argon2.hash(password);
+    const hash = await argon2.hash(password, ARGON2_OPTIONS);
 
     // 4. Insert into users
     const [user] = await this.sql`

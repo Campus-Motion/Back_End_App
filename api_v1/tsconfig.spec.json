@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["jest", "node"]
   },
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "include": ["src/**/*.spec.ts", "src/**/*.e2e-spec.ts", "test/**/*.ts"]
 }
