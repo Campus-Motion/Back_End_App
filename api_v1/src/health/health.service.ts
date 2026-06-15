@@ -225,27 +225,20 @@ export class HealthService {
     return updated;
   }
 
-  // ─── DELETE /health — GDPR soft-delete ────────────────────────────────────
+  // ─── DELETE /health — GDPR hard-delete ────────────────────────────────────
 
-  async requestDeletion(
-    user: { id: number; username: string },
-    ctx?: AuditContext,
-  ) {
-    const updated = await this.apiDb.begin(async (tx: any) => {
+  async delete(user: { id: number; username: string }, ctx?: AuditContext) {
+    const deleted = await this.apiDb.begin(async (tx: any) => {
       await tx`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
 
       const rows = await tx`
-      UPDATE health_data SET
-        deletion_requested_at = NOW()
-      WHERE health_data.user_id = ${user.id}
-        AND health_data.deletion_requested_at IS NULL
-      RETURNING health_data.id
+      DELETE FROM healthdata
+      WHERE userid = ${user.id}
+      RETURNING id
     `;
 
       if (!rows.length) {
-        throw new NotFoundException(
-          'No health data found, or deletion already requested',
-        );
+        throw new NotFoundException('No health data found for this user');
       }
 
       return rows[0];
@@ -254,14 +247,14 @@ export class HealthService {
     await this.log({
       user_id: user.id,
       username: user.username,
-      action: 'health.delete_requested',
-      target_id: updated.id,
+      action: 'health.deleted',
+      target_id: deleted.id,
       newValue: {
-        note: 'GDPR deletion request registered — data not yet hard-deleted',
+        note: 'GDPR hard deletion — health data permanently removed',
       },
       ctx,
     });
 
-    return { message: 'Health data deletion request registered' };
+    return { message: 'Health data permanently deleted' };
   }
 }

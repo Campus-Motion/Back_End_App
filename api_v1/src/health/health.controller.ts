@@ -57,8 +57,8 @@ export class HealthController {
 
   @Delete()
   @HttpCode(HttpStatus.OK)
-  requestDeletion(@Req() req: any) {
-    return this.healthService.requestDeletion(
+  delete(@Req() req: any) {
+    return this.healthService.delete(
       req.user,
       auditCtx(req, 'delete', '/health'),
     );

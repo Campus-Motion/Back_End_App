@@ -47,7 +47,8 @@ CREATE TYPE audit_action AS ENUM (
   'comment.delete',
   'health.create',
   'health.update',
-  'health.delete_requested'
+  'health.delete_requested',
+  'health.deleted'
 );
 CREATE TYPE event_format AS ENUM ( 
     'social',
