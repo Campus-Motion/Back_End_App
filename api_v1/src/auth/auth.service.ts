@@ -193,7 +193,7 @@ export class AuthService {
     return {
       access_token:
         user.role === 'admin'
-          ? this.jwtService.sign(payload, { expiresIn: '2h' })
+          ? this.jwtService.sign(payload, { expiresIn: '1h' })
           : this.jwtService.sign(payload, { expiresIn: '24h' }),
       role: user.role,
     };

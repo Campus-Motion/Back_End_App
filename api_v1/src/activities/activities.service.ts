@@ -4,12 +4,15 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import postgres from 'postgres';
+import postgres, { Sql } from 'postgres';
 import { CreateActivityDto } from './dto/create-activities.dto';
 
 @Injectable()
 export class ActivitiesService {
-  constructor(@Inject('API_DB') private sql: postgres.Sql<{}>) {}
+  constructor(
+    @Inject('API_DB') private readonly api_db: postgres.Sql<{}>,
+    @Inject('ADMIN_DB') private readonly admin_db: postgres.Sql<{}>,
+  ) {}
 
   async findAll(
     userId: number,
@@ -18,7 +21,7 @@ export class ActivitiesService {
     type?: string,
     isPublic?: boolean,
   ) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       // Dynamic query building for filters
@@ -52,7 +55,7 @@ export class ActivitiesService {
   }
 
   async findOne(userId: number, id: number) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
       const [activity] = await sql`SELECT * FROM activities WHERE id = ${id}`;
 
@@ -68,7 +71,7 @@ export class ActivitiesService {
   async create(dto: CreateActivityDto, userId: number) {
     console.log('Creating activity with DTO:', dto, 'for user ID:', userId);
     {
-      return this.sql.begin(async (sql: any) => {
+      return this.api_db.begin(async (sql: any) => {
         await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
         const [activity] = await sql`
         INSERT INTO activities (title, type, user_id, body, is_public, event_id)
@@ -93,7 +96,7 @@ export class ActivitiesService {
       is_public?: boolean;
     },
   ) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       // First check if it exists and belongs to user
@@ -118,16 +121,48 @@ export class ActivitiesService {
     });
   }
 
-  async remove(userId: number, id: number) {
-    return this.sql.begin(async (sql: any) => {
-      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+  async remove(id: number, user: { id: number; role: string }) {
+    const isAdmin = user.role === 'admin';
 
-      // postgres.js tagged templates let us delete and check in one step
-      const result =
-        await sql`DELETE FROM activities WHERE id = ${id} RETURNING id`;
+    // Admin path: use the admin DB connection (bypasses RLS entirely)
+    if (isAdmin) {
+      const [existing] = await this.admin_db`
+      SELECT id, user_id FROM activities WHERE id = ${id}
+    `;
 
-      if (result.length === 0) {
-        // If nothing was deleted, it either doesn't exist or RLS blocked it (not owner)
+      if (!existing) {
+        throw new NotFoundException(`Activity #${id} not found`);
+      }
+
+      await this.admin_db`
+      DELETE FROM activities WHERE id = ${id}
+    `;
+
+      return { message: 'Activity deleted successfully' };
+    }
+
+    // Owner path: use the API DB connection (RLS enforces ownership)
+    return this.api_db.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
+
+      const [existing] = await sql`
+      SELECT id, user_id FROM activities WHERE id = ${id}
+    `;
+
+      if (!existing) {
+        throw new NotFoundException(`Activity #${id} not found`);
+      }
+
+      if (existing.user_id !== user.id) {
+        throw new ForbiddenException('You can only delete your own activities');
+      }
+
+      const deleted = await sql`
+      DELETE FROM activities WHERE id = ${id}
+      RETURNING id
+    `;
+
+      if (deleted.length === 0) {
         throw new NotFoundException(
           `Activity #${id} not found or access denied`,
         );
@@ -150,7 +185,7 @@ export class ActivitiesService {
       sequence_order: number;
     }[],
   ) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       const [activity] = await sql`
@@ -184,7 +219,7 @@ export class ActivitiesService {
   }
 
   async getWaypoints(userId: number, activityId: number) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       const [activity] =
@@ -211,7 +246,7 @@ export class ActivitiesService {
     photoUrl: string,
     position: number = 0,
   ) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       // RLS will block SELECT if private + not owner — use it to gate access
@@ -237,7 +272,7 @@ export class ActivitiesService {
   }
 
   async getPhotos(userId: number, activityId: number) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       // This SELECT goes through RLS — 404s if private + not owner
@@ -257,7 +292,7 @@ export class ActivitiesService {
   }
 
   async removePhoto(userId: number, activityId: number, photoId: number) {
-    return this.sql.begin(async (sql: any) => {
+    return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       // Verify ownership — RLS on activities guarantees the user can see it

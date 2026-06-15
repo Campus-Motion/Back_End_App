@@ -13,7 +13,10 @@ import postgres from 'postgres';
 
 @Injectable()
 export class CommentsService {
-  constructor(@Inject('API_DB') private sql: postgres.Sql<{}>) {}
+  constructor(
+    @Inject('API_DB') private sql: postgres.Sql<{}>,
+    @Inject('ADMIN_DB') private admin_db: postgres.Sql<{}>,
+  ) {}
 
   private async setRlsContext(userId: number) {
     await this
@@ -244,32 +247,45 @@ export class CommentsService {
     });
   }
   async remove(id: number, user: { id: number; role: string }) {
-    return this.sql.begin(async (sql: any) => {
-      await sql`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
+    const isModerator = user.role === 'moderator' || user.role === 'admin';
 
-      const [existing] = await sql`
-        SELECT * FROM comments WHERE id = ${id}
-      `;
+    // Moderator / Admin path: use admin DB connection (bypasses RLS)
+    if (isModerator) {
+      const [existing] = await this.admin_db`
+      SELECT id, authorid FROM comments WHERE id = ${id}
+    `;
+
       if (!existing) {
         throw new NotFoundException(`Comment #${id} not found`);
       }
 
-      const isModerator = user.role === 'moderator' || user.role === 'admin';
-      if (!isModerator && existing.author_id !== user.id) {
+      await this.admin_db`
+      DELETE FROM comments WHERE id = ${id}
+    `;
+
+      return { message: 'Comment deleted' };
+    }
+
+    // Owner path: use API DB connection (RLS enforces ownership)
+    return this.sql.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${String(user.id)}, true)`;
+
+      const [existing] = await sql`
+      SELECT id, authorid FROM comments WHERE id = ${id}
+    `;
+
+      if (!existing) {
+        throw new NotFoundException(`Comment #${id} not found`);
+      }
+
+      if (existing.authorid !== user.id) {
         throw new ForbiddenException('You can only delete your own comments');
       }
 
-      if (isModerator && existing.author_id !== user.id) {
-        await sql`
-          DELETE FROM comments WHERE id = ${id}
-        `;
-        return { message: 'Comment deleted' };
-      }
-
       const deleted = await sql`
-        DELETE FROM comments WHERE id = ${id}
-        RETURNING id
-      `;
+      DELETE FROM comments WHERE id = ${id}
+      RETURNING id
+    `;
 
       if (deleted.length === 0) {
         throw new NotFoundException(

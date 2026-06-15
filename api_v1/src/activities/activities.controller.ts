@@ -77,11 +77,9 @@ export class ActivitiesController {
   }
 
   // DELETE /activities/:id
-  @Delete(':id')
-  @UseGuards(RolesGuard)
-  @SetMetadata('roles', ['admin']) // Only admins can delete activities
+  @Delete(':id') // Only admins and user that created the activity can delete it
   remove(@Request() req, @Param('id', ParseIntPipe) id: number) {
-    return this.activitiesService.remove(req.user.id, id);
+    return this.activitiesService.remove(id, req.user);
   }
 
   // POST /activities/:id/waypoints
