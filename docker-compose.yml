@@ -51,6 +51,25 @@ services:
       - uploads_data:/app/uploads/events
       - uploads_data:/app/uploads/profiles
 
+  # One-shot job started by cron: docker compose run --rm strava-relay
+  # Setup: api_v1/src/strava-relay/README.md
+  strava-relay:
+    build:
+      context: ./api_v1
+      dockerfile: Dockerfile
+    profiles: ["jobs"]
+    restart: "no"
+    command: ["dist/strava-relay/main.js"]
+    env_file:
+      - .env
+    environment:
+      STRAVA_RELAY_API_URL: http://api-server:3000
+      NODE_ENV: production
+    networks:
+      - epfl_private_network
+    depends_on:
+      - api-server
+
 networks:
   epfl_private_network:
     driver: bridge
