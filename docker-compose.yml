@@ -26,7 +26,7 @@ services:
   api-server:
     build:
       context: ./api_v1
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     container_name: campus_motion_api
     restart: unless-stopped
     env_file:
@@ -56,7 +56,7 @@ services:
   strava-relay:
     build:
       context: ./api_v1
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     profiles: ["jobs"]
     restart: "no"
     command: ["dist/strava-relay/main.js"]
