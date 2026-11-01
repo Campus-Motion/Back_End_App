@@ -2,7 +2,7 @@
 
 Publishes partner clubs' Strava group events as Campus Motion events.
 
-A dedicated Strava account (`campusmotion.epfl@gmail.com`) joins each partner club with the club's agreement and receives Strava's email announcement for every new club event. Every 10 minutes, a cron job on the VM reads the unread announcements in that Gmail inbox and creates the matching event through the API (`POST /events`, as a moderator).
+A dedicated Strava account (`events.campusmotion@gmail.com`) joins each partner club with the club's agreement and receives Strava's email announcement for every new club event. Every 10 minutes, a cron job on the VM reads the unread announcements in that Gmail inbox and creates the matching event through the API (`POST /events`, as a moderator).
 
 Only the facts are relayed: title, start time, club name and the link to the Strava event, where people sign up. No member data, email text or attachments are stored.
 
@@ -31,13 +31,13 @@ Strava's email format can change without notice. If starred emails appear for re
 
 ### 1. Gmail
 
-1. On `campusmotion.epfl@gmail.com`, turn on 2-Step Verification (Google Account, Security).
+1. On `events.campusmotion@gmail.com`, turn on 2-Step Verification (Google Account, Security).
 2. Create an app password (Google Account, Security, App passwords) named "strava-relay". Keep the 16-character password for step 4.
 3. IMAP is always on for Gmail; nothing to enable.
 
 ### 2. Strava
 
-1. Sign up on Strava with `campusmotion.epfl@gmail.com`, language French.
+1. Sign up on Strava with `events.campusmotion@gmail.com`, language French.
 2. Settings, Notifications, Email: turn on the group event announcements (the setting behind "Me désinscrire des e-mails d'annonces d'événements de groupe" in the footer of these emails).
 3. Join each partner club once the club has agreed. Note the club id from its URL (`https://www.strava.com/clubs/<id>`).
 
@@ -51,7 +51,7 @@ Strava's email format can change without notice. If starred emails appear for re
 Add to the `.env` file next to `docker-compose.yml`:
 
 ```bash
-STRAVA_RELAY_GMAIL_USER=campusmotion.epfl@gmail.com
+STRAVA_RELAY_GMAIL_USER=events.campusmotion@gmail.com
 STRAVA_RELAY_GMAIL_APP_PASSWORD=<app password from step 1>
 STRAVA_RELAY_API_EMAIL=<relay account email from step 3>
 STRAVA_RELAY_API_PASSWORD=<relay account password>
