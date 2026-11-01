@@ -25,6 +25,29 @@ Voir l'événement
 `;
 }
 
+// Plain-text part of a real Strava announcement (English), footer trimmed.
+function englishAnnouncementText(
+  dateLine = 'on Thu, Nov 5 at 5:30 PM',
+): string {
+  return `Interested? Here are the details.
+
+Strava
+
+********
+Join Us!
+********
+
+Campus Motion ( http://www.strava.com/clubs/1999456 ) invited you
+to join 5K Fun Run 🏃
+( http://www.strava.com/clubs/1999456/group_events/3550909561526338028 )
+ ${dateLine}. If you’re interested, get more
+details and RSVP.
+
+View Event
+( http://www.strava.com/clubs/1999456/group_events/3550909561526338028 )
+`;
+}
+
 const receivedAt = new Date('2026-10-27T12:15:48Z');
 const eventUrl =
   'https://www.strava.com/clubs/1999456/group_events/3550136692242408010';
@@ -61,6 +84,37 @@ describe('parseAnnouncement', () => {
     expect(
       parseAnnouncement('Votre récapitulatif hebdomadaire', receivedAt),
     ).toBeNull();
+    expect(parseAnnouncement('Your weekly summary', receivedAt)).toBeNull();
+  });
+});
+
+describe('parseAnnouncement in English', () => {
+  const englishReceivedAt = new Date('2026-10-29T15:26:53Z');
+
+  it('extracts the club, title, link and 12-hour start time', () => {
+    expect(
+      parseAnnouncement(englishAnnouncementText(), englishReceivedAt),
+    ).toEqual({
+      clubId: '1999456',
+      clubName: 'Campus Motion',
+      title: '5K Fun Run 🏃',
+      eventUrl:
+        'https://www.strava.com/clubs/1999456/group_events/3550909561526338028',
+      // 5:30 PM in Lausanne in winter (UTC+1).
+      startTime: new Date('2026-11-05T16:30:00Z'),
+    });
+  });
+
+  it.each([
+    ['on Sat, Nov 7 at 12:00 PM', '2026-11-07T11:00:00Z'],
+    ['on Sat, Nov 7 at 12:15 AM', '2026-11-06T23:15:00Z'],
+    ['on Sun, Jun 13 at 9:30 AM', '2027-06-13T07:30:00Z'],
+  ])('reads "%s" as %s', (dateLine, expected) => {
+    const parsed = parseAnnouncement(
+      englishAnnouncementText(dateLine),
+      englishReceivedAt,
+    );
+    expect(parsed?.startTime).toEqual(new Date(expected));
   });
 });
 
