@@ -10,7 +10,7 @@ Only the facts are relayed: title, start time, club name and the link to the Str
 
 | File | Role |
 |---|---|
-| `announcement.ts` | Parses the plain-text part of a French announcement ("X vous invite à participer à Y ... le ven. 30 oct. à 18:00"). The email has no year, so the year is the first one that puts the date on or after the day the email arrived. Times are Lausanne time, converted to UTC. |
+| `announcement.ts` | Parses the plain-text part of a French or English announcement ("X vous invite à participer à Y ... le ven. 30 oct. à 18:00", "X invited you to join Y ... on Thu, Nov 5 at 5:30 PM"). The email has no year, so the year is the first one that puts the date on or after the day the email arrived. Times are Lausanne time, converted to UTC. |
 | `relay.ts` | Skips clubs that are not partners, skips events already published (same Strava link at the same start time), then creates the event. |
 | `api-client.ts` | Signs in as the relay's moderator account and calls the existing events endpoints. |
 | `main.ts` | Reads unread emails from `no-reply@strava.com` over IMAP and runs the relay on each one. |
@@ -25,7 +25,7 @@ What happens to each email:
 | `unparsed` | read and starred | Not a recognised announcement (another Strava email, or Strava changed its format). Check starred emails in Gmail. |
 | error | left unread | The API or network failed; retried on the next run. |
 
-Strava's email format can change without notice. If starred emails appear for real announcements, update the pattern in `announcement.ts` and its test in `test/strava-relay/`. Only French announcements are recognised for now; keep the Strava account's language set to French.
+Strava's email format can change without notice. If starred emails appear for real announcements, update the pattern in `announcement.ts` and its test in `test/strava-relay/`. French and English announcements are recognised; Strava may send either, whatever the account's language setting. Another language needs a new entry in `LOCALES` in `announcement.ts`.
 
 ## Setup
 
@@ -37,8 +37,8 @@ Strava's email format can change without notice. If starred emails appear for re
 
 ### 2. Strava
 
-1. Sign up on Strava with `events.campusmotion@gmail.com`, language French.
-2. Settings, Notifications, Email: turn on the group event announcements (the setting behind "Me désinscrire des e-mails d'annonces d'événements de groupe" in the footer of these emails).
+1. Sign up on Strava with `events.campusmotion@gmail.com`, language French or English.
+2. Settings, Notifications, Email: turn on the group event announcements (the setting behind the "unsubscribe from group event announcement emails" link in the footer of these emails).
 3. Join each partner club once the club has agreed. Note the club id from its URL (`https://www.strava.com/clubs/<id>`).
 
 ### 3. Campus Motion API account
