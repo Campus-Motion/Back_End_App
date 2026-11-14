@@ -1,5 +1,7 @@
 import {
   Controller,
+  Header,
+  Res,
   Get,
   Post,
   Put,
@@ -20,6 +22,10 @@ import {
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { FitImportsService } from './fit-imports.service';
+import { memoryStorage } from 'multer';
+import { HeatmapsService } from './heatmaps.service';
 import { ActivitiesService } from './activities.service';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -31,7 +37,40 @@ import { CreateActivityDto } from './dto/create-activities.dto';
 @Controller('activities')
 @UseGuards(JwtGuard)
 export class ActivitiesController {
-  constructor(private activitiesService: ActivitiesService) {}
+  constructor(
+    private activitiesService: ActivitiesService,
+    private heatmapsService: HeatmapsService,
+    private fitImportsService: FitImportsService,
+  ) {}
+
+  @Post('import-fit')
+  @Header('Cache-Control', 'no-store')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 0, parts: 2 },
+    }),
+  )
+  importFit(
+    @Req() req: { user: { id: number } },
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.fitImportsService.importActivity(req.user.id, file);
+  }
+
+  @Get('export')
+  @Header('Cache-Control', 'no-store')
+  exportActivities(@Req() req: { user: { id: number } }) {
+    return this.fitImportsService.exportActivities(req.user.id);
+  }
+
+  @Get('heatmap')
+  @Header('Cache-Control', 'no-store')
+  async heatmap(@Request() req, @Res({ passthrough: true }) res: Response) {
+    const result = await this.heatmapsService.personal(req.user.id);
+    if (result === null) res.status(HttpStatus.NO_CONTENT);
+    return result;
+  }
 
   // GET /activities?limit=20&offset=0&type=run&public=true
   @Get()
