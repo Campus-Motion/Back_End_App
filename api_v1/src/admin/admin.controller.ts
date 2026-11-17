@@ -18,6 +18,7 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { QueryAuditDto } from './dto/query-audit.dto';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { UpdateXpDto } from './dto/update-xp.dto';
 
 const Roles = (...roles: string[]) => SetMetadata('roles', roles);
 
@@ -115,5 +116,20 @@ export class AdminController {
     query: QueryAuditDto,
   ) {
     return this.adminService.getAuditLog(query);
+  }
+  // ─── XP (admin or moderator) ─────────────────────────────────────────────
+  @Patch('users/:id/xp')
+  @Roles('admin', 'moderator')
+  @HttpCode(HttpStatus.OK)
+  updateXp(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateXpDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.updateXp(
+      id,
+      dto,
+      auditCtx(req, 'PATCH', 'admin/users/:id/xp'),
+    );
   }
 }

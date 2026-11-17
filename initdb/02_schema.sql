@@ -49,6 +49,7 @@ CREATE TYPE audit_action AS ENUM (
   'health.update',
   'health.delete_requested',
   'health.deleted'
+  'user.update_xp'
 );
 CREATE TYPE event_format AS ENUM ( 
     'social',
@@ -89,7 +90,7 @@ CREATE TABLE users (
     photo_url     VARCHAR,
     section       VARCHAR,
     role          user_role  NOT NULL DEFAULT 'user',
-    xp            INTEGER    NOT NULL DEFAULT 0,   -- Not used in v1, but can be used for gamification in the future
+    xp            INTEGER    NOT NULL DEFAULT 0,   
     created_at    TIMESTAMP  NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP,
     last_login_at TIMESTAMP,

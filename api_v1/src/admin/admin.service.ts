@@ -7,6 +7,7 @@ import {
 import type { Sql } from 'postgres';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { QueryAuditDto } from './dto/query-audit.dto';
+import { UpdateXpDto } from './dto/update-xp.dto';
 
 // Must match the audit_action enum in your DB
 type AuditAction =
@@ -24,6 +25,7 @@ type AuditAction =
   | 'comment.delete'
   | 'health.create'
   | 'health.update'
+  | 'user.update_xp'
   | 'health.delete_requested';
 
 // Passed from the controller on every request
@@ -34,6 +36,7 @@ interface AuditContext {
   userAgent?: string;
   endpoint?: string;
   httpMethod?: string;
+  role?: 'user' | 'moderator' | 'admin';
 }
 
 @Injectable()
@@ -281,5 +284,56 @@ export class AdminService {
       data: rows,
       meta: { total, limit, offset, has_more: offset + rows.length < total },
     };
+  }
+
+  async updateXp(targetId: number, dto: UpdateXpDto, ctx: AuditContext) {
+    // moderators can't edit their own XP
+    if (targetId === ctx.userId) {
+      await this.log(
+        ctx,
+        'user.update_xp',
+        'users',
+        targetId,
+        'failure',
+        null,
+        { delta: dto.delta, reason: 'self-modification blocked' },
+      );
+      throw new ForbiddenException('You cannot modify your own XP');
+    }
+
+    const result = await this.adminDb.begin(async (tx) => {
+      const q = tx as unknown as Sql;
+      // lock the row so concurrent edits can't race
+      const [target] = await q`
+      SELECT id, username, role, xp FROM users
+      WHERE id = ${targetId} FOR UPDATE
+    `;
+      if (!target) throw new NotFoundException(`User #${targetId} not found`);
+
+      // moderators can't touch other staff; only admins can
+      if (target.role !== 'user' && ctx.role !== 'admin') {
+        throw new ForbiddenException('Only admins can modify staff XP');
+      }
+
+      const [updated] = await q`
+      UPDATE users
+      SET xp = GREATEST(0, xp + ${dto.delta}), updated_at = NOW()
+      WHERE id = ${targetId}
+      RETURNING id, username, xp
+    `;
+      return { oldXp: target.xp as number, updated };
+    });
+
+    await this.log(
+      ctx,
+      'user.update_xp',
+      'users',
+      targetId,
+      'success',
+      { xp: result.oldXp },
+      { xp: result.updated.xp, delta: dto.delta, reason: dto.reason },
+    );
+
+    return result.updated;
   }
 }
