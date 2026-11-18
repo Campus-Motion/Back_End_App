@@ -192,6 +192,34 @@ Get a public user profile.
 
 ---
 
+#### `GET /users/search`
+
+Find members whose username starts with the given text (case-insensitive). `%` and `_` match literally. The caller and accounts pending deletion are never returned.
+
+- **Access:** Authenticated
+- **Query params:** `q` (required, 2 to 50 characters after trimming), `limit` (default `20`, capped at `20`)
+- **Returns:** `200` — exact match first, then alphabetical; public fields only (no email, no health data)
+
+```json
+{
+  "data": [
+    {
+      "id": 2,
+      "username": "alice",
+      "photo_url": "/uploads/profiles/uuid.jpg",
+      "section": "IN",
+      "role": "user",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "meta": { "total": 1, "limit": 20 }
+}
+```
+
+- **Errors:** `400` for a missing or too short `q`, `401` without a valid token
+
+---
+
 #### `PUT /users/me`
 
 Update the current user's profile.
