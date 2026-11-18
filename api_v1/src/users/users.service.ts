@@ -9,6 +9,7 @@ import type { Sql } from 'postgres';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuditContext } from '../auth/auth.service';
 import { UpdatePreferencesDto } from './dto/update-preference.dto';
+import { QueryEventDto } from '../events/dto/query-event.dto';
 
 @Injectable()
 export class UsersService {
@@ -74,6 +75,59 @@ export class UsersService {
     `;
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  // ─── Joined events ─────────────────────────────────────────────────────────
+
+  /** Events the user joined (not as a guest), same fields as GET /events. */
+  async getMyEvents(userId: number, query: QueryEventDto) {
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
+    const after = query.after ? new Date(query.after) : null;
+    const before = query.before ? new Date(query.before) : null;
+
+    const rows = await this.apiDb`
+      SELECT
+        e.id,
+        e.title,
+        e.body,
+        e.user_id,
+        e.start_location_id,
+        e.end_location_id,
+        e.start_time,
+        e.strava_url,
+        e.type,
+        e.end_time,
+        e.event_format,
+        e.distance_m,
+        e.created_at,
+        mine.joined_at,
+        (
+          SELECT COUNT(*)::int FROM event_participants ep
+          WHERE ep.event_id = e.id
+        ) AS participant_count
+      FROM event_participants mine
+      JOIN events e ON e.id = mine.event_id
+      WHERE mine.user_id = ${userId}
+        ${after ? this.apiDb`AND e.start_time > ${after}` : this.apiDb``}
+        ${before ? this.apiDb`AND e.start_time < ${before}` : this.apiDb``}
+      ORDER BY e.start_time ASC, e.id ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const [{ total }] = await this.apiDb`
+      SELECT COUNT(*)::int AS total
+      FROM event_participants mine
+      JOIN events e ON e.id = mine.event_id
+      WHERE mine.user_id = ${userId}
+        ${after ? this.apiDb`AND e.start_time > ${after}` : this.apiDb``}
+        ${before ? this.apiDb`AND e.start_time < ${before}` : this.apiDb``}
+    `;
+
+    return {
+      data: rows,
+      meta: { total, limit, offset, has_more: offset + rows.length < total },
+    };
   }
 
   async updateMe(userId: number, dto: UpdateUserDto) {

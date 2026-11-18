@@ -25,6 +25,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtGuard } from '../auth/jwt.guard';
 import { photoUploadConfig } from '../common/multer/multer.config';
 import { UpdatePreferencesDto } from './dto/update-preference.dto';
+import { QueryEventDto } from '../events/dto/query-event.dto';
 
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const uploadsRoot = join(__dirname, '..', '..', 'uploads');
@@ -51,6 +52,16 @@ export class UsersController {
   @UseGuards(JwtGuard)
   getMe(@Req() req: any) {
     return this.usersService.getMe(req.user.id);
+  }
+
+  // GET /users/me/events — events the user joined with their account
+  @Get('me/events')
+  @UseGuards(JwtGuard)
+  getMyEvents(
+    @Query() query: QueryEventDto,
+    @Req() req: { user: { id: number } },
+  ) {
+    return this.usersService.getMyEvents(req.user.id, query);
   }
 
   // PUT /users/me

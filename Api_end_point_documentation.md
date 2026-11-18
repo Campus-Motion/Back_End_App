@@ -173,6 +173,33 @@ Get the currently authenticated user's profile.
 
 ---
 
+#### `GET /users/me/events`
+
+List the events the current user joined with their account (`POST /events/:id/participants`). Guest sign-ups are not included.
+
+- **Access:** Authenticated
+- **Query params:** `limit`, `offset`, `after`, `before` (same as `GET /events`)
+- **Returns:** `200` — paginated envelope, sorted by `start_time` (earliest first). Each event has the same fields as in `GET /events`, plus `joined_at`.
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "title": "Spring 5K",
+      "start_time": "2026-04-02T18:00:00Z",
+      "participant_count": 12,
+      "joined_at": "2026-03-31T15:00:00Z"
+    }
+  ],
+  "meta": { "total": 1, "limit": 20, "offset": 0, "has_more": false }
+}
+```
+
+- **Errors:** `401` without a valid token, `400` for an invalid query parameter
+
+---
+
 #### `GET /users/:id`
 
 Get a public user profile.
