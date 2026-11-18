@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtGuard } from './jwt.guard';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -17,13 +19,8 @@ export class AuthController {
 
   // POST /auth/register
   @Post('register')
-  register(
-    @Body('username') username: string,
-    @Body('email') email: string,
-    @Body('password') password: string,
-    @Req() req: any,
-  ) {
-    return this.authService.register(username, email, password, {
+  register(@Body() dto: RegisterDto, @Req() req: any) {
+    return this.authService.register(dto.username, dto.email, dto.password, {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
       endpoint: '/auth/register',
@@ -34,12 +31,8 @@ export class AuthController {
   // POST /auth/login
   @Post('login')
   @HttpCode(200) // Override default 201 Created status
-  login(
-    @Body('email') email: string,
-    @Body('password') password: string,
-    @Req() req: any,
-  ) {
-    return this.authService.login(email, password, {
+  login(@Body() dto: LoginDto, @Req() req: any) {
+    return this.authService.login(dto.email, dto.password, {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
       endpoint: '/auth/login',
