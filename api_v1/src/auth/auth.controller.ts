@@ -67,4 +67,17 @@ export class AuthController {
       },
     );
   }
+
+  // POST /auth/logout
+  @Post('logout')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  logout(@Req() req: any) {
+    return this.authService.logout(req.user.id, req.user.username, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+      endpoint: '/auth/logout',
+      httpMethod: 'POST',
+    });
+  }
 }
