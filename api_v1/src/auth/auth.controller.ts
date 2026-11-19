@@ -6,13 +6,17 @@ import {
   Req,
   Put,
   UseGuards,
+  UseFilters,
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtGuard } from './jwt.guard';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { SingleMessageBadRequestFilter } from '../common/filters/single-message-bad-request.filter';
 
+// The mobile app reads `message` as a string: send validation errors as one.
+@UseFilters(SingleMessageBadRequestFilter)
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}

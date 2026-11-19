@@ -86,7 +86,7 @@ Create a new user account.
 ```
 
 - **Rules:** `username` non-empty, `email` a valid address, `password` at least 8 characters. No other fields are allowed.
-- **Errors:** `400` if a field is missing or invalid (`message` is an array naming each field), `409` if the email or username is already in use
+- **Errors:** `400` if a field is missing or invalid (`message` is one string naming each problem, e.g. `"email must be an email. password must be at least 8 characters"`; other endpoints return an array), `409` if the email or username is already in use
 
 ---
 
