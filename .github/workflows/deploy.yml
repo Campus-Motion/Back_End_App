@@ -1,0 +1,42 @@
+# Deploys the API with the shared Campus Motion pipeline.
+# How to use it: https://github.com/Campus-Motion/deploy#day-to-day-everyone
+#
+# Staging only for now: do not use promote-to-production until production has
+# a plan for applying schema changes (initdb only runs on an empty database).
+
+name: Deploy
+
+on:
+  push:
+    branches: [main, production]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        options:
+          - promote-to-production
+          - rollback-production
+          - rollback-staging
+      version:
+        description: For a rollback only, the commit to go back to (at least 7 characters of its SHA)
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  pipeline:
+    uses: Campus-Motion/deploy/.github/workflows/pipeline.yml@v1
+    with:
+      site: api
+      action: ${{ inputs.action || 'push' }}
+      version: ${{ inputs.version }}
+      context: api_v1
+      dockerfile: api_v1/dockerfile
+      # The API root answers 404, /events is public and answers 200.
+      staging-url: https://api.staging.campusmotion.ch/events
+    secrets:
+      PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
