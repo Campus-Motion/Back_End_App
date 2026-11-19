@@ -85,7 +85,8 @@ Create a new user account.
 { "message": "User registered successfully", "userId": 5 }
 ```
 
-- **Errors:** `409` if email already exists
+- **Rules:** `username` non-empty, `email` a valid address, `password` at least 8 characters. No other fields are allowed.
+- **Errors:** `400` if a field is missing or invalid (`message` is one string naming each problem, e.g. `"email must be an email. password must be at least 8 characters"`; other endpoints return an array), `409` if the email or username is already in use
 
 ---
 
@@ -106,7 +107,7 @@ Authenticate and receive a JWT.
 { "access_token": "eyJhbGci..." }
 ```
 
-- **Errors:** `401` if credentials are invalid
+- **Errors:** `400` if `email` or `password` is missing or empty, `401` if credentials are invalid
 
 ---
 
