@@ -1,0 +1,38 @@
+# Staging API on the staging VM: copy to /srv/sites/api/docker-compose.yml.
+# Setup and database reset: README.md next to this file.
+name: api-staging
+
+services:
+  app:
+    image: ghcr.io/campus-motion/back_end_app:${IMAGE_TAG:?set by cm-deploy}
+    env_file: app.env
+    environment:
+      NODE_ENV: production
+    ports:
+      # Keep the host port that add-site.sh wrote in the file this replaces.
+      - "127.0.0.1:8101:3000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    env_file: db.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Only runs on an empty database.
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    # No ports: only the app container can reach the database.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  uploads:
