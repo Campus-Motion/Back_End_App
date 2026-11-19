@@ -30,15 +30,22 @@ async function bootstrap() {
   });
   app.set('trust proxy', 1); // trust first proxy hop
 
+  // CORS_ORIGINS: comma-separated sites allowed to call the API, set per
+  // environment. Without it, the list below is used.
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean) ?? [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'https://feed.campusmotion.ch',
+    'https://admin.campusmotion.ch',
+    'https://api.campusmotion.ch',
+  ];
+
   app.use(
     cors({
-      origin: [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:3000',
-        'https://feed.campusmotion.ch',
-        'https://api.campusmotion.ch',
-      ],
+      origin: corsOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
