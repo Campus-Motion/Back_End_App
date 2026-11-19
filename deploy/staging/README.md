@@ -50,7 +50,18 @@ It is deployed by `.github/workflows/deploy.yml` (every push to `main`) through 
    EOF
    ```
 
-4. At Hostinger, add an A record `api.staging` pointing to the staging VM.
+4. Start the database on its own and check it. `docker compose` needs `IMAGE_TAG`, which `cm-deploy` writes to `.env` on every deploy; until the first deploy, write a placeholder (`sudo -E` is not allowed on the VM):
+
+   ```bash
+   cd /srv/sites/api
+   echo "IMAGE_TAG=none" | sudo -u github-deploy tee .env > /dev/null
+   sudo -u github-deploy docker compose up -d db
+   sudo -u github-deploy docker compose exec db psql -U postgres -d campus_motion -c '\du'
+   ```
+
+   The list must show `api_role`, `auth_role`, `admin_role` and `audit_writer`.
+
+5. At Hostinger, add an A record `api.staging` pointing to the staging VM.
 
 The first push to `main` (or a re-run of the last Deploy run) then starts the API.
 
