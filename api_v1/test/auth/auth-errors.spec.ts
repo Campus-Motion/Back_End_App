@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthController } from '../../src/auth/auth.controller';
 import { AuthService } from '../../src/auth/auth.service';
+import { JwtGuard } from '../../src/auth/jwt.guard';
 
 // Requests go through the real controller, the same global pipe as main.ts and
 // the controller's filter. The service is a stub: only the error shape matters.
@@ -12,13 +13,27 @@ describe('auth validation errors', () => {
   const authService = {
     register: jest.fn().mockResolvedValue({ message: 'ok', userId: 1 }),
     login: jest.fn().mockResolvedValue({ access_token: 't', role: 'user' }),
+    changePassword: jest
+      .fn()
+      .mockResolvedValue({ message: 'Password updated successfully' }),
   };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [{ provide: AuthService, useValue: authService }],
-    }).compile();
+    })
+      // Stands in for a valid token on PUT /auth/password.
+      .overrideGuard(JwtGuard)
+      .useValue({
+        canActivate: (ctx: {
+          switchToHttp: () => { getRequest: () => { user?: unknown } };
+        }) => {
+          ctx.switchToHttp().getRequest().user = { id: 1 };
+          return true;
+        },
+      })
+      .compile();
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(
       new ValidationPipe({
@@ -47,10 +62,21 @@ describe('auth validation errors', () => {
       'email must be an email',
     ],
     ['/auth/login', { email: 'alice@epfl.ch' }, 'password should not be empty'],
+    [
+      '/auth/password',
+      { current_password: 'old', new_password: '' },
+      'new_password must be at least 8 characters',
+    ],
+    [
+      '/auth/password',
+      { new_password: 'newPassword2' },
+      'current_password should not be empty',
+    ],
   ])(
     '%s sends one string message with the reason',
     async (path, body, reason) => {
-      const res = await request(server).post(path).send(body).expect(400);
+      const method = path === '/auth/password' ? 'put' : 'post';
+      const res = await request(server)[method](path).send(body).expect(400);
       const err = res.body as ErrorBody;
       // The mobile app reads it with `data['message'] as String?`.
       expect(typeof err.message).toBe('string');
@@ -84,5 +110,19 @@ describe('auth validation errors', () => {
       .post('/auth/login')
       .send({ email: 'alice@epfl.ch', password: 'x' })
       .expect(200, { access_token: 't', role: 'user' });
+    await request(server)
+      .put('/auth/password')
+      .send({ current_password: 'old', new_password: 'newPassword2' })
+      .expect(200, { message: 'Password updated successfully' });
+  });
+
+  it('never reaches the service with an invalid password change', () => {
+    // The 400 cases above ran before any valid change.
+    const calls = authService.changePassword.mock.calls as unknown[][];
+    expect(
+      calls.every(
+        (c) => (c[1] as { new_password: string }).new_password.length >= 8,
+      ),
+    ).toBe(true);
   });
 });

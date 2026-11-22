@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { JwtGuard } from './jwt.guard';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { SingleMessageBadRequestFilter } from '../common/filters/single-message-bad-request.filter';
 
 // The mobile app reads `message` as a string: send validation errors as one.
@@ -48,14 +49,13 @@ export class AuthController {
   @Put('password')
   @UseGuards(JwtGuard)
   @HttpCode(HttpStatus.OK)
-  changePassword(
-    @Req() req: any,
-    @Body('current_password') current_password: string,
-    @Body('new_password') new_password: string,
-  ) {
+  changePassword(@Req() req: any, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(
       req.user.id,
-      { current_password, new_password },
+      {
+        current_password: dto.current_password,
+        new_password: dto.new_password,
+      },
       {
         ip: req.ip,
         userAgent: req.headers['user-agent'],

@@ -86,7 +86,7 @@ Create a new user account.
 ```
 
 - **Rules:** `username` non-empty, `email` a valid address, `password` at least 8 characters. No other fields are allowed.
-- **Errors:** `400` if a field is missing or invalid (`message` is one string naming each problem, e.g. `"email must be an email. password must be at least 8 characters"`; other endpoints return an array), `409` if the email or username is already in use
+- **Errors:** `400` if a field is missing or invalid (`message` is one string naming each problem, e.g. `"email must be an email. password must be at least 8 characters"`; this holds for all `/auth` routes, other endpoints return an array), `409` if the email or username is already in use
 
 ---
 
@@ -107,7 +107,7 @@ Authenticate and receive a JWT.
 { "access_token": "eyJhbGci..." }
 ```
 
-- **Errors:** `400` if `email` or `password` is missing or empty, `401` if credentials are invalid
+- **Errors:** `400` if `email` or `password` is missing or empty (`message` is one string), `401` if credentials are invalid
 
 ---
 
@@ -120,18 +120,19 @@ Change the password of the current user.
 
 ```json
 {
-  "current_password": "secure1",
-  "new_password": "moreSecure"
+  "current_password": "oldPassword1",
+  "new_password": "newPassword2"
 }
 ```
 
 - **Returns:** `200`
 
 ```json
-{ "message": "password modified sucessfully" }
+{ "message": "Password updated successfully" }
 ```
 
-- **Errors:** `401` if credential are invalid.
+- **Rules:** `current_password` non-empty, `new_password` at least 8 characters (same rule as register). No other fields are allowed.
+- **Errors:** `400` if a field is missing or invalid (`message` is one string), `401` if the token or the current password is invalid
 
 ---
 

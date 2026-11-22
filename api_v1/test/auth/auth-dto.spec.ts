@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { RegisterDto } from '../../src/auth/dto/register.dto';
 import { LoginDto } from '../../src/auth/dto/login.dto';
+import { ChangePasswordDto } from '../../src/auth/dto/change-password.dto';
 
 // Same options as the global pipe in main.ts.
 const pipe = new ValidationPipe({
@@ -76,6 +77,25 @@ describe('LoginDto', () => {
     ['email', { ...validLogin, email: '' }],
   ])('rejects a missing or empty %s', async (field, body) => {
     const messages = await rejectionMessages(LoginDto, body);
+    expect(messages.some((m) => m.startsWith(field))).toBe(true);
+  });
+});
+
+describe('ChangePasswordDto', () => {
+  const valid = { current_password: 'old', new_password: 'newPassword2' };
+
+  it('accepts a short current password and a valid new one', async () => {
+    await expect(validate(ChangePasswordDto, valid)).resolves.toEqual(valid);
+  });
+
+  it.each([
+    ['current_password', { new_password: 'newPassword2' }],
+    ['current_password', { ...valid, current_password: '' }],
+    ['new_password', { current_password: 'old' }],
+    ['new_password', { ...valid, new_password: '' }],
+    ['new_password', { ...valid, new_password: '1234567' }],
+  ])('rejects a missing, empty or short %s', async (field, body) => {
+    const messages = await rejectionMessages(ChangePasswordDto, body);
     expect(messages.some((m) => m.startsWith(field))).toBe(true);
   });
 });
