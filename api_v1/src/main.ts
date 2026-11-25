@@ -5,6 +5,7 @@ import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import cors from 'cors';
+import { parseCorsOrigins } from './common/cors-origins';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -30,15 +31,11 @@ async function bootstrap() {
   });
   app.set('trust proxy', 1); // trust first proxy hop
 
+  const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
+
   app.use(
     cors({
-      origin: [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:3000',
-        'https://feed.campusmotion.ch',
-        'https://api.campusmotion.ch',
-      ],
+      origin: corsOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
