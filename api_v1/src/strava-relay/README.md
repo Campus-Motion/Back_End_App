@@ -56,7 +56,7 @@ STRAVA_RELAY_GMAIL_APP_PASSWORD=<app password from step 1>
 STRAVA_RELAY_API_EMAIL=<relay account email from step 3>
 STRAVA_RELAY_API_PASSWORD=<relay account password>
 # Partner clubs: <strava club id>:<event type>, comma separated.
-# Types: run, walk, bike, hike, swim, triathlon, fitness_trail, climbing,
+# Types: run, walk, cycle, hike, swim, triathlon, street_workout, fitness_trail, climbing,
 # volleyball, basketball, soccer, badminton, tennis, golf, other.
 STRAVA_RELAY_CLUBS=1999456:run
 ```

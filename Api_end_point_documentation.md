@@ -297,7 +297,7 @@ Create or update the current user's activity preferences. All fields are optiona
 
 | Field                | Accepted values                                                                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `preferred_sports`   | `run` `walk` `cycle` `hike` `swim` `triathlon` `fitness_trail` `climbing` `volleyball` `basketball` `soccer` `badminton` `tennis` `golf` `other` |
+| `preferred_sports`   | `run` `walk` `cycle` `hike` `swim` `triathlon` `street_workout` `fitness_trail` `climbing` `volleyball` `basketball` `soccer` `badminton` `tennis` `golf` `other` |
 | `intensity`          | `light` `moderate` `intense` `extreme`                                                                                                           |
 | `goal`               | `lose_weight` `build_muscle` `improve_endurance` `stay_active` `compete` `have_fun`                                                              |
 | `level`              | `beginner` `intermediate` `advanced` `expert`                                                                                                    |
@@ -464,13 +464,18 @@ Get activities visible to the current user (own + public).
       "user_id": 5,
       "is_public": true,
       "created_at": "2026-03-26T08:00:00Z",
-      "duration": null,
-      "body": null
+      "updated_at": null,
+      "duration": 42.5,
+      "distance_km": 8.4,
+      "body": null,
+      "event_id": null
     }
   ],
   "meta": { "total": 8, "limit": 20, "offset": 0, "has_more": false }
 }
 ```
+
+- **Units:** `duration` is numeric minutes (`number | null`, stored as a PostgreSQL `INTERVAL`); `distance_km` is numeric kilometres (`number | null`).
 
 ---
 
@@ -479,7 +484,7 @@ Get activities visible to the current user (own + public).
 Get a single activity.
 
 - **Access:** Authenticated (owner, or public activity)
-- **Returns:** `200` — activity object
+- **Returns:** `200` — activity object (including `duration` in minutes and `distance_km` in kilometres, both `null` if unset)
 - **Errors:** `404` if not found or not accessible
 
 ---
@@ -493,16 +498,19 @@ Create a new activity for the current user.
 
 ```json
 {
-  "title": "Evening Hike",
-  "type": "hike",
+  "title": "Evening Cycle",
+  "type": "cycle",
   "body": "Great trail near Lausanne",
-  "is_public": true,
+  "duration": 45.5,
+  "distance_km": 15.2,
+  "is_public": false,
   "event_id": null
 }
 ```
 
-- **Types available:** `run` `walk` `cycle` `hike` `swim` `climbing` `other`
-- **Returns:** `201` — created activity object
+- **Optional fields:** `body`, `duration` (number >= `0`, in minutes), `distance_km` (number >= `0`, in kilometres), `is_public` (defaults to `false`), `event_id`
+- **Types available:** `run` `walk` `cycle` `hike` `swim` `triathlon` `street_workout` `fitness_trail` `climbing` `volleyball` `basketball` `soccer` `badminton` `tennis` `golf` `other`
+- **Returns:** `201` — created activity object (`duration` and `distance_km` are `null` when omitted)
 
 ---
 
@@ -514,11 +522,18 @@ Update an existing activity.
 - **Body (all fields optional):**
 
 ```json
-{ "title": "Updated title", "is_public": false }
+{
+  "title": "Updated title",
+  "type": "cycle",
+  "duration": 50,
+  "distance_km": 16.5,
+  "is_public": false
+}
 ```
 
+- **Field rules:** `duration` (number >= `0`, in minutes), `distance_km` (number >= `0`, in kilometres), `type` (same `activity_type` values as `POST /activities`)
 - **Returns:** `200` — updated activity object
-- **Errors:** `403` if not owner
+- **Errors:** `403` if not owner, `404` if not found or private activity owned by another user
 
 ---
 

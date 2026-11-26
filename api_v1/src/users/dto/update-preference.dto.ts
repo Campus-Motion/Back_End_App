@@ -7,6 +7,8 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { ACTIVITY_TYPES } from '../../common/activity-types';
+import type { ActivityType } from '../../common/activity-types';
 
 export enum TrainingIntensity {
   LIGHT = 'light',
@@ -31,28 +33,11 @@ export enum ExperienceLevel {
   EXPERT = 'expert',
 }
 
-const VALID_SPORTS = [
-  'run',
-  'walk',
-  'bike',
-  'hike',
-  'swim',
-  'triathlon',
-  'fitness_trail',
-  'climbing',
-  'volleyball',
-  'basketball',
-  'soccer',
-  'badminton',
-  'tennis',
-  'golf',
-  'other',
-] as const;
-
 export class UpdatePreferencesDto {
   @IsOptional()
   @IsArray()
-  preferred_sports?: (typeof VALID_SPORTS)[number][];
+  @IsEnum(ACTIVITY_TYPES, { each: true })
+  preferred_sports?: ActivityType[];
 
   @IsOptional()
   @IsEnum(TrainingIntensity)

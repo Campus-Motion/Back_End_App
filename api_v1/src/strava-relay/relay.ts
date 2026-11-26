@@ -37,7 +37,7 @@ export async function relayAnnouncement(
   return 'created';
 }
 
-/** Parses "1999456:run,123:bike" into a club id -> event type map. */
+/** Parses "1999456:run,123:cycle" into a club id -> event type map. */
 export function parsePartnerClubs(value: string): PartnerClubs {
   const partners: PartnerClubs = new Map();
   for (const entry of value.split(',')) {

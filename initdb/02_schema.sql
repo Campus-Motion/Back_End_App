@@ -15,7 +15,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TYPE activity_type AS ENUM (
     'run',
     'walk',
-    'bike',
+    'cycle',
     'hike',
     'swim',
     'triathlon',
@@ -187,16 +187,17 @@ CREATE TABLE event_participants (
 
 -- 9. activities
 CREATE TABLE activities (
-    id         SERIAL         PRIMARY KEY,
-    title      VARCHAR        NOT NULL,
-    body       TEXT,
-    type       activity_type  NOT NULL,
-    user_id    INTEGER        NOT NULL,
-    event_id   INTEGER,
-    is_public  BOOLEAN        NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP      NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP,
-    duration   INTERVAL,
+    id          SERIAL         PRIMARY KEY,
+    title       VARCHAR        NOT NULL,
+    body        TEXT,
+    type        activity_type  NOT NULL,
+    user_id     INTEGER        NOT NULL,
+    event_id    INTEGER,
+    is_public   BOOLEAN        NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP      NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP,
+    duration    INTERVAL,
+    distance_km NUMERIC(10,3)  CHECK (distance_km >= 0),
 
     CONSTRAINT fk_activity_user
         FOREIGN KEY (user_id)  REFERENCES users (id)  ON DELETE CASCADE,
