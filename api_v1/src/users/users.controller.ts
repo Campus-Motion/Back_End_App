@@ -26,6 +26,7 @@ import { JwtGuard } from '../auth/jwt.guard';
 import { photoUploadConfig } from '../common/multer/multer.config';
 import { UpdatePreferencesDto } from './dto/update-preference.dto';
 import { QueryEventDto } from '../events/dto/query-event.dto';
+import { SearchUsersDto } from './dto/search-users.dto';
 
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const uploadsRoot = join(__dirname, '..', '..', 'uploads');
@@ -109,6 +110,13 @@ export class UsersController {
   }
 
   // ─── Public profiles ──────────────────────────────────────────────────────
+
+  // GET /users/search?q= (must come before :id, or "search" is parsed as an id)
+  @Get('search')
+  @UseGuards(JwtGuard)
+  searchUsers(@Query() query: SearchUsersDto, @Req() req: any) {
+    return this.usersService.searchUsers(req.user.id, query.q, query.limit);
+  }
 
   @Get(':id')
   @UseGuards(JwtGuard)

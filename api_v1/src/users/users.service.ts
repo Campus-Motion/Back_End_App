@@ -275,6 +275,33 @@ export class UsersService {
     return user;
   }
 
+  /** Case-insensitive username prefix search; public fields only. */
+  async searchUsers(callerId: number, q: string, limit = 20) {
+    const take = Math.min(limit, 20);
+    // Escape LIKE wildcards so "%" and "_" match literally (default escape: \).
+    const pattern = `${q.replace(/[\\%_]/g, '\\$&')}%`;
+
+    const rows = await this.apiDb`
+      SELECT id, username, photo_url, section, role, created_at
+      FROM users
+      WHERE username ILIKE ${pattern}
+        AND id <> ${callerId}
+        AND deletion_requested_at IS NULL
+      ORDER BY lower(username) = lower(${q}::text) DESC, lower(username) ASC
+      LIMIT ${take}
+    `;
+
+    const [{ total }] = await this.apiDb`
+      SELECT COUNT(*)::int AS total
+      FROM users
+      WHERE username ILIKE ${pattern}
+        AND id <> ${callerId}
+        AND deletion_requested_at IS NULL
+    `;
+
+    return { data: rows, meta: { total, limit: take } };
+  }
+
   // ─── Social ────────────────────────────────────────────────────────────────
 
   async getFollowers(targetId: number, limit = 20, cursor?: number) {
