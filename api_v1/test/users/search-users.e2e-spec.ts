@@ -98,9 +98,7 @@ describe('GET /users/search', () => {
   });
 
   it('caps limit at 20', async () => {
-    const res = await search(bobToken, { q: 'srch', limit: '100' }).expect(
-      200,
-    );
+    const res = await search(bobToken, { q: 'srch', limit: '100' }).expect(200);
     expect(res.body.meta.limit).toBe(20);
     expect(res.body.data.length).toBeLessThanOrEqual(20);
   });
