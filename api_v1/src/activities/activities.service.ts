@@ -4,8 +4,31 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import postgres, { Sql } from 'postgres';
+import postgres from 'postgres';
 import { CreateActivityDto } from './dto/create-activities.dto';
+import { UpdateActivityDto } from './dto/update-activity.dto';
+
+export interface ActivityRow {
+  id: number;
+  title: string;
+  body: string | null;
+  type: string;
+  user_id: number;
+  event_id: number | null;
+  is_public: boolean;
+  created_at: Date | string;
+  updated_at: Date | string | null;
+  duration: number | string | null;
+  distance_km: number | string | null;
+}
+
+export interface ActivityResponse extends Omit<
+  ActivityRow,
+  'duration' | 'distance_km'
+> {
+  duration: number | null;
+  distance_km: number | null;
+}
 
 @Injectable()
 export class ActivitiesService {
@@ -13,6 +36,20 @@ export class ActivitiesService {
     @Inject('API_DB') private readonly api_db: postgres.Sql<{}>,
     @Inject('ADMIN_DB') private readonly admin_db: postgres.Sql<{}>,
   ) {}
+
+  private formatActivity(row: ActivityRow): ActivityResponse {
+    return {
+      ...row,
+      duration:
+        row.duration !== null && row.duration !== undefined
+          ? Number(row.duration)
+          : null,
+      distance_km:
+        row.distance_km !== null && row.distance_km !== undefined
+          ? Number(row.distance_km)
+          : null,
+    };
+  }
 
   async findAll(
     userId: number,
@@ -25,8 +62,20 @@ export class ActivitiesService {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
       // Dynamic query building for filters
-      const activities = await sql`
-        SELECT * FROM activities
+      const activities: ActivityRow[] = await sql`
+        SELECT
+          id,
+          title,
+          body,
+          type,
+          user_id,
+          event_id,
+          is_public,
+          created_at,
+          updated_at,
+          (EXTRACT(EPOCH FROM duration) / 60.0)::double precision AS duration,
+          distance_km::double precision AS distance_km
+        FROM activities
         WHERE 1=1
         ${type ? sql`AND type = ${type}` : sql``}
         ${isPublic !== undefined ? sql`AND is_public = ${isPublic}` : sql``}
@@ -43,7 +92,7 @@ export class ActivitiesService {
       `;
 
       return {
-        data: activities,
+        data: activities.map((row) => this.formatActivity(row)),
         meta: {
           total: count,
           limit,
@@ -57,45 +106,74 @@ export class ActivitiesService {
   async findOne(userId: number, id: number) {
     return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
-      const [activity] = await sql`SELECT * FROM activities WHERE id = ${id}`;
+      const [activity]: ActivityRow[] = await sql`
+        SELECT
+          id,
+          title,
+          body,
+          type,
+          user_id,
+          event_id,
+          is_public,
+          created_at,
+          updated_at,
+          (EXTRACT(EPOCH FROM duration) / 60.0)::double precision AS duration,
+          distance_km::double precision AS distance_km
+        FROM activities
+        WHERE id = ${id}
+      `;
 
       if (!activity) {
         throw new NotFoundException(
           `Activity #${id} not found or access denied`,
         );
       }
-      return activity;
+      return this.formatActivity(activity);
     });
   }
 
   async create(dto: CreateActivityDto, userId: number) {
-    console.log('Creating activity with DTO:', dto, 'for user ID:', userId);
-    {
-      return this.api_db.begin(async (sql: any) => {
-        await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
-        const [activity] = await sql`
-        INSERT INTO activities (title, type, user_id, body, is_public, event_id)
-        VALUES (${dto.title},
-         ${dto.type},
-        ${userId},
-        ${dto.body ?? null}, ${dto.is_public ?? false}, ${dto.event_id ?? null})
-        RETURNING *
+    return this.api_db.begin(async (sql: any) => {
+      await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
+      const [activity]: ActivityRow[] = await sql`
+        INSERT INTO activities (
+          title,
+          type,
+          user_id,
+          body,
+          is_public,
+          event_id,
+          duration,
+          distance_km
+        )
+        VALUES (
+          ${dto.title},
+          ${dto.type},
+          ${userId},
+          ${dto.body ?? null},
+          ${dto.is_public ?? false},
+          ${dto.event_id ?? null},
+          ${dto.duration ?? null}::double precision * INTERVAL '1 minute',
+          ${dto.distance_km ?? null}
+        )
+        RETURNING
+          id,
+          title,
+          body,
+          type,
+          user_id,
+          event_id,
+          is_public,
+          created_at,
+          updated_at,
+          (EXTRACT(EPOCH FROM duration) / 60.0)::double precision AS duration,
+          distance_km::double precision AS distance_km
       `;
-        return activity;
-      });
-    }
+      return this.formatActivity(activity);
+    });
   }
 
-  async update(
-    userId: number,
-    id: number,
-    updates: {
-      title?: string;
-      type?: string;
-      body?: string;
-      is_public?: boolean;
-    },
-  ) {
+  async update(userId: number, id: number, updates: UpdateActivityDto) {
     return this.api_db.begin(async (sql: any) => {
       await sql`SELECT set_config('app.current_user_id', ${userId.toString()}, true)`;
 
@@ -107,17 +185,33 @@ export class ActivitiesService {
         throw new ForbiddenException('You can only edit your own activities');
 
       // Build dynamic update
-      const [updatedActivity] = await sql`
+      const [updatedActivity]: ActivityRow[] = await sql`
         UPDATE activities SET
           title = COALESCE(${updates.title ?? null}, title),
           type = COALESCE(${updates.type ?? null}, type),
           body = COALESCE(${updates.body ?? null}, body),
           is_public = COALESCE(${updates.is_public ?? null}, is_public),
+          duration = COALESCE(
+            ${updates.duration ?? null}::double precision * INTERVAL '1 minute',
+            duration
+          ),
+          distance_km = COALESCE(${updates.distance_km ?? null}, distance_km),
           updated_at = NOW()
         WHERE id = ${id}
-        RETURNING *
+        RETURNING
+          id,
+          title,
+          body,
+          type,
+          user_id,
+          event_id,
+          is_public,
+          created_at,
+          updated_at,
+          (EXTRACT(EPOCH FROM duration) / 60.0)::double precision AS duration,
+          distance_km::double precision AS distance_km
       `;
-      return updatedActivity;
+      return this.formatActivity(updatedActivity);
     });
   }
 

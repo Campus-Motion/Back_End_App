@@ -72,7 +72,7 @@ describe('[EXP 7] RLS — cross-user activity isolation', () => {
       .put(`/activities/${alicePrivateActivityId}`)
       .set('Authorization', `Bearer ${bobToken}`)
       .send({ title: 'Hacked title' })
-      .expect(400);
+      .expect(404);
   });
 
   it("Bob gets 404 trying to DELETE Alice's private activity", async () => {

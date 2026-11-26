@@ -27,6 +27,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { photoUploadConfig } from '../common/multer/multer.config';
 import { CreateWaypointsDto } from './dto/create-waypoint.dto';
 import { CreateActivityDto } from './dto/create-activities.dto';
+import { UpdateActivityDto } from './dto/update-activity.dto';
 
 @Controller('activities')
 @UseGuards(JwtGuard)
@@ -71,7 +72,7 @@ export class ActivitiesController {
   update(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: CreateActivityDto,
+    @Body() dto: UpdateActivityDto,
   ) {
     return this.activitiesService.update(req.user.id, id, dto);
   }

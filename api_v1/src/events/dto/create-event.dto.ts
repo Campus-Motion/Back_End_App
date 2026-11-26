@@ -9,30 +9,16 @@ import {
   IsEnum,
   IsUrl,
 } from 'class-validator';
+import { ACTIVITY_TYPES } from '../../common/activity-types';
+import type { ActivityType } from '../../common/activity-types';
 
 export class CreateEventDto {
   @IsString()
   @MaxLength(255)
   title!: string;
 
-  @IsEnum([
-    'run',
-    'walk',
-    'bike',
-    'hike',
-    'swim',
-    'triathlon',
-    'fitness_trail',
-    'climbing',
-    'volleyball',
-    'basketball',
-    'soccer',
-    'badminton',
-    'tennis',
-    'golf',
-    'other',
-  ])
-  type!: string;
+  @IsEnum(ACTIVITY_TYPES)
+  type!: ActivityType;
 
   @IsOptional()
   @IsString()

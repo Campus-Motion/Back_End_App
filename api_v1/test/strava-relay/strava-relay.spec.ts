@@ -119,7 +119,7 @@ describe('parseAnnouncement in English', () => {
 });
 
 describe('relayAnnouncement', () => {
-  const partners = parsePartnerClubs('1999456:run, 42:bike');
+  const partners = parsePartnerClubs('1999456:run, 42:cycle');
 
   function fakeApi(existing = false) {
     return {
