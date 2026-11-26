@@ -1,7 +1,7 @@
 # Deploys the API with the shared Campus Motion pipeline.
 # How to use it: https://github.com/Campus-Motion/deploy#day-to-day-everyone
 #
-# Staging only for now: do not use promote-to-production until production has
+# Staging only for now: promote-to-production is left out until production has
 # a plan for applying schema changes (initdb only runs on an empty database).
 
 name: Deploy
@@ -15,8 +15,8 @@ on:
         description: What to do
         type: choice
         options:
-          - promote-to-production
-          - rollback-production
+          # promote-to-production and rollback-production come back once
+          # production has a plan for schema changes (see the note above).
           - rollback-staging
       version:
         description: For a rollback only, the commit to go back to (at least 7 characters of its SHA)

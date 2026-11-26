@@ -48,6 +48,7 @@ It is deployed by `.github/workflows/deploy.yml` (every push to `main`) through 
    JWT_SECRET=$(openssl rand -hex 32)
    CORS_ORIGINS=https://admin.staging.campusmotion.ch
    EOF
+   chmod 600 /srv/sites/api/db.env /srv/sites/api/app.env
    ```
 
 4. Start the database on its own and check it. `docker compose` needs `IMAGE_TAG`, which `cm-deploy` writes to `.env` on every deploy; until the first deploy, write a placeholder (`sudo -E` is not allowed on the VM):
