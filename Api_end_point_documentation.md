@@ -1319,3 +1319,34 @@ Delete a location. Will fail if the location is currently referenced by an event
 | `v1.0`  | 2026-03-26 | Initial release — auth, activities, events, news                            |
 | `v1.1`  | 2026-03-31 | Added social features: likes, comments, follows, notifications              |
 | `v1.2`  | 2026-04-01 | Added admin endpoints, photo uploads, query parameters, pagination envelope |
+
+## Personal heatmap
+
+`GET /activities/heatmap` requires a Bearer JWT. The authenticated user ID is
+used exclusively; clients cannot request another user's heatmap. The endpoint
+uses the user's latest 20 GPS activities and returns a PNG data URL (`image`),
+`bounds: [[south, west], [north, east]]`, `runs`, `points`, `pixel_m`, and
+`saturation`. 204 indicates no usable moving routes, 413 over 100,000 points,
+and 503 an unavailable/busy renderer. Responses are `Cache-Control: no-store`.
+The internal renderer is configured through `HEATMAP_URL`; see `api_v1/README.md` deployment
+instructions. No user data or heatmap results are persisted by rendering.
+
+## FIT import and owned-data export
+
+- `POST /activities/import-fit`: Bearer JWT plus multipart field `file`, exactly
+  one `.fit` file, nonempty and at most 10 MiB. Creates one private activity
+  (`title: Imported FIT activity`, `type: other`) and up to 100,000 ordered GPS
+  waypoints atomically. Returns the activity with status 201. The JWT determines
+  ownership; client owner fields are rejected. Original FIT bytes, filenames and
+  health/sensor fields are not retained. Invalid/unsupported GPS data returns
+  422, oversized input returns 413 and a decoder outage returns 503. Importing
+  the same file again creates another activity; there is no automatic retry.
+- `GET /activities/export`: Bearer JWT, all owned activities with `waypoints`
+  arrays (latitude, longitude, recorded_at with timezone, sequence_order).
+  Includes private routes, excludes everyone else's public activities, and does
+  not silently truncate the export. Responses are `Cache-Control: no-store`.
+
+The internal decoder is `POST /fit/parse` on `HEATMAP_URL`. Keep it private,
+behind the authenticated API; raw FIT files are processed temporarily and
+removed. Deleting an activity cascades to its imported waypoints through the
+existing foreign key. No schema migration is required.

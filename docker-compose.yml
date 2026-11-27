@@ -38,6 +38,7 @@ services:
       AUDIT_DB_URL: ${AUDIT_DB_URL}
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
+      HEATMAP_URL: http://heatmap:3041
     networks:
       - epfl_private_network
     ports:
@@ -50,6 +51,15 @@ services:
       - uploads_data:/app/uploads/news
       - uploads_data:/app/uploads/events
       - uploads_data:/app/uploads/profiles
+
+  # Keep the renderer internal: only the authenticated API exposes user heatmaps.
+  heatmap:
+    image: ghcr.io/campus-motion/trail-parcours:latest
+    restart: unless-stopped
+    networks:
+      - epfl_private_network
+    expose:
+      - "3041"
 
   # One-shot job started by cron: docker compose run --rm strava-relay
   # Setup: api_v1/src/strava-relay/README.md

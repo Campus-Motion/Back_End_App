@@ -1,5 +1,6 @@
 // Sites allowed to call the API when CORS_ORIGINS is unset or empty.
 export const DEFAULT_CORS_ORIGINS = [
+  'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
