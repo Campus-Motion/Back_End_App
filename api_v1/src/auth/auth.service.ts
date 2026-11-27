@@ -199,6 +199,23 @@ export class AuthService {
     };
   }
 
+  // ─── LOGOUT ───────────────────────────────────────────────────────────────
+
+  // JWTs are stateless: this only records the event. The client discards the token.
+  async logout(userId: number, username: string, ctx?: AuditContext) {
+    await this.log({
+      userId,
+      username,
+      action: 'auth.logout',
+      targetTable: 'users',
+      targetId: userId,
+      outcome: 'success',
+      ctx,
+    });
+
+    return { message: 'Logged out successfully' };
+  }
+
   async changePassword(
     userId: number,
     dto: { current_password: string; new_password: string },

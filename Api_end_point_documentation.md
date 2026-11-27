@@ -85,7 +85,8 @@ Create a new user account.
 { "message": "User registered successfully", "userId": 5 }
 ```
 
-- **Errors:** `409` if email already exists
+- **Rules:** `username` non-empty, `email` a valid address, `password` at least 8 characters. No other fields are allowed.
+- **Errors:** `400` if a field is missing or invalid (`message` is one string naming each problem, e.g. `"email must be an email. password must be at least 8 characters"`; this holds for all `/auth` routes, other endpoints return an array), `409` if the email or username is already in use
 
 ---
 
@@ -106,7 +107,7 @@ Authenticate and receive a JWT.
 { "access_token": "eyJhbGci..." }
 ```
 
-- **Errors:** `401` if credentials are invalid
+- **Errors:** `400` if `email` or `password` is missing or empty (`message` is one string), `401` if credentials are invalid
 
 ---
 
@@ -119,18 +120,19 @@ Change the password of the current user.
 
 ```json
 {
-  "current_password": "secure1",
-  "new_password": "moreSecure"
+  "current_password": "oldPassword1",
+  "new_password": "newPassword2"
 }
 ```
 
 - **Returns:** `200`
 
 ```json
-{ "message": "password modified sucessfully" }
+{ "message": "Password updated successfully" }
 ```
 
-- **Errors:** `401` if credential are invalid.
+- **Rules:** `current_password` non-empty, `new_password` at least 8 characters (same rule as register). No other fields are allowed.
+- **Errors:** `400` if a field is missing or invalid (`message` is one string), `401` if the token or the current password is invalid
 
 ---
 
@@ -173,6 +175,33 @@ Get the currently authenticated user's profile.
 
 ---
 
+#### `GET /users/me/events`
+
+List the events the current user joined with their account (`POST /events/:id/participants`). Guest sign-ups are not included.
+
+- **Access:** Authenticated
+- **Query params:** `limit`, `offset`, `after`, `before` (same as `GET /events`)
+- **Returns:** `200` — paginated envelope, sorted by `start_time` (earliest first). Each event has the same fields as in `GET /events`, plus `joined_at`.
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "title": "Spring 5K",
+      "start_time": "2026-04-02T18:00:00Z",
+      "participant_count": 12,
+      "joined_at": "2026-03-31T15:00:00Z"
+    }
+  ],
+  "meta": { "total": 1, "limit": 20, "offset": 0, "has_more": false }
+}
+```
+
+- **Errors:** `401` without a valid token, `400` for an invalid query parameter
+
+---
+
 #### `GET /users/:id`
 
 Get a public user profile.
@@ -189,6 +218,34 @@ Get a public user profile.
   "created_at": "2026-01-01T00:00:00Z"
 }
 ```
+
+---
+
+#### `GET /users/search`
+
+Find members whose username starts with the given text (case-insensitive). `%` and `_` match literally. The caller and accounts pending deletion are never returned.
+
+- **Access:** Authenticated
+- **Query params:** `q` (required, 2 to 50 characters after trimming), `limit` (default `20`, capped at `20`)
+- **Returns:** `200` — exact match first, then alphabetical; public fields only (no email, no health data)
+
+```json
+{
+  "data": [
+    {
+      "id": 2,
+      "username": "alice",
+      "photo_url": "/uploads/profiles/uuid.jpg",
+      "section": "IN",
+      "role": "user",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "meta": { "total": 1, "limit": 20 }
+}
+```
+
+- **Errors:** `400` for a missing or too short `q`, `401` without a valid token
 
 ---
 
