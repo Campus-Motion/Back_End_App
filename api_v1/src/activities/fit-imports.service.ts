@@ -13,6 +13,48 @@ import postgres from 'postgres';
 type GpsPoint = { latitude: number; longitude: number; recorded_at: string };
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_POINTS = 100000;
+const MAX_DECODER_RESPONSE_BYTES = 16 * 1024 * 1024;
+
+async function readJsonWithLimit(
+  response: Response,
+  maxBytes: number,
+): Promise<unknown> {
+  const contentLengthHeader = response.headers.get('content-length');
+  if (contentLengthHeader !== null) {
+    const contentLength = Number(contentLengthHeader);
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+      await response.body?.cancel();
+      throw new PayloadTooLargeException('FIT activity exceeds import limits');
+    }
+  }
+  if (!response.body) {
+    const text = await response.text();
+    if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+      throw new PayloadTooLargeException('FIT activity exceeds import limits');
+    }
+    return JSON.parse(text) as unknown;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        throw new PayloadTooLargeException(
+          'FIT activity exceeds import limits',
+        );
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+}
 
 function isPoint(value: unknown): value is GpsPoint {
   if (!value || typeof value !== 'object') return false;
@@ -72,7 +114,10 @@ export class FitImportsService {
           'Invalid FIT file or insufficient supported GPS data',
         );
       if (!response.ok) throw new Error('Decoder unavailable');
-      const result: unknown = await response.json();
+      const result = await readJsonWithLimit(
+        response,
+        MAX_DECODER_RESPONSE_BYTES,
+      );
       if (
         !result ||
         typeof result !== 'object' ||

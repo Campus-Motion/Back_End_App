@@ -54,8 +54,7 @@ services:
 
   # Keep the renderer internal: only the authenticated API exposes user heatmaps.
   heatmap:
-    build:
-      context: ../Trail-parcours
+    image: ghcr.io/campus-motion/trail-parcours:latest
     restart: unless-stopped
     networks:
       - epfl_private_network

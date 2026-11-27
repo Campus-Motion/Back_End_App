@@ -159,6 +159,30 @@ describe('FIT imports service', () => {
     await expect(service.importActivity(42, file)).rejects.toMatchObject({
       status: 413,
     });
+    fetchMock.mockResolvedValueOnce(
+      new Response('{}', {
+        headers: { 'content-length': String(16 * 1024 * 1024 + 1) },
+      }),
+    );
+    await expect(service.importActivity(42, file)).rejects.toMatchObject({
+      status: 413,
+    });
+    const oversizedChunk = new Uint8Array(1024 * 1024);
+    let sentChunks = 0;
+    const oversizedStream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sentChunks < 17) {
+          sentChunks++;
+          controller.enqueue(oversizedChunk);
+        } else {
+          controller.close();
+        }
+      },
+    });
+    fetchMock.mockResolvedValueOnce(new Response(oversizedStream));
+    await expect(service.importActivity(42, file)).rejects.toMatchObject({
+      status: 413,
+    });
     expect(queries).toEqual([]);
   });
   it('exports all and only the authenticated owner activities including their GPS points', async () => {

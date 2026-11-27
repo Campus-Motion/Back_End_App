@@ -107,13 +107,12 @@ and timestamps to the Python service at `HEATMAP_URL` (default
 populates routes; manually logged activities without waypoints do not appear.
 No new database tables or migrations are needed.
 
-Clone `Campus-Motion/Trail-parcours` beside this repository, with that exact
-folder name, and use the matching waypoint-enabled renderer version. The Compose
-`heatmap` service builds from `../Trail-parcours`, is reachable only on the
+The Compose `heatmap` service pulls the published `ghcr.io/campus-motion/trail-parcours:latest`
+image built by `Campus-Motion/Trail-parcours`, is reachable only on the
 private Compose network, and does not publish port 3041. Deploy with:
 
 ```sh
-docker compose up -d --build heatmap api-server
+docker compose up -d --pull always heatmap api-server
 ```
 
 Outside Compose set `HEATMAP_URL` to the private renderer origin. Never point it
